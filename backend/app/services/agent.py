@@ -45,41 +45,58 @@ def get_current_time() -> str:
 
 @tool
 def query_knowledge_base(query: str) -> str:
-    """Query the Aras/MTAI knowledge base for information.
+    """Query the knowledge base for information.
 
-    Use this tool when the user asks about:
-    - Aras Integrasi company information
-    - MTAI Labs products or services
-    - Deployed models and infrastructure
-    - Technical documentation
-    - Company policies or procedures
+    Configure KNOWLEDGE_BASE_URL in .env to connect to your RAG service.
 
     Args:
-        query: The search query about Aras/MTAI
+        query: The search query
     """
-    # TODO: Implement actual knowledge base query
-    # This should connect to your existing ingestion endpoint
-    # For now, returning a placeholder response
+    import httpx
 
-    knowledge_base_info = """
-Aras Integrasi (also known as Aras Integrasi Sdn Bhd) is an AI solutions company.
-MTAI Labs is their AI research and development division.
+    kb_url = settings.KNOWLEDGE_BASE_URL
 
-Key information:
-- Location: Malaysia
-- Focus: AI/ML solutions, GPU infrastructure, model deployment
-- Products: Deployed AI models (LLMs, VLMs, Speech-to-Text, etc.)
-- Infrastructure: GPU clusters (B200, H200)
-- Services: AI consulting, model fine-tuning, RAG implementations
+    # If no KB URL configured, return placeholder
+    if not kb_url:
+        return (
+            f"Knowledge base not configured. "
+            f"Set KNOWLEDGE_BASE_URL in .env to enable RAG queries. "
+            f"Query was: '{query}'"
+        )
 
-For specific queries, the knowledge base would search through:
-- Internal documentation
-- Deployment guides
-- Model specifications
-- Architecture decisions
-"""
+    try:
+        headers = {}
+        if settings.KNOWLEDGE_BASE_API_KEY:
+            headers["Authorization"] = f"Bearer {settings.KNOWLEDGE_BASE_API_KEY}"
 
-    return f"Knowledge base results for '{query}':\n{knowledge_base_info}"
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                f"{kb_url}/query",
+                json={"query": query},
+                headers=headers,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            # Extract answer from common RAG response formats
+            if "answer" in data:
+                return data["answer"]
+            elif "response" in data:
+                return data["response"]
+            elif "result" in data:
+                return data["result"]
+            else:
+                return str(data)
+
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Knowledge base query failed: {e}")
+        return f"Error querying knowledge base: {e.response.status_code}"
+    except httpx.RequestError as e:
+        logger.error(f"Knowledge base connection failed: {e}")
+        return f"Could not connect to knowledge base at {kb_url}"
+    except Exception as e:
+        logger.error(f"Unexpected error in knowledge base query: {e}")
+        return f"Error processing knowledge base query: {str(e)}""
 
 
 # ── Agent Setup ─────────────────────────────────────────────────────────────────

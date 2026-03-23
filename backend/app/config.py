@@ -11,11 +11,16 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # ── App ───────────────────────────────────────────────────────────────────
-    APP_NAME: str = "KPDN Tribunal Transcriber"
+    APP_NAME: str = "Chatbot POC"
     APP_URL: str = "http://localhost:8080"
     APP_ENV: str = "development"  # "development" | "production"
     SECRET_KEY: str = "change-me-in-production"
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
+
+    # ── External Services ─────────────────────────────────────────────────────
+    # RAG/Knowledge Base endpoint - configure for your ingestion service
+    KNOWLEDGE_BASE_URL: str = ""
+    KNOWLEDGE_BASE_API_KEY: str = ""
 
     # ── Database ──────────────────────────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://kpdn:changeme@db:5432/kpdn_db"
