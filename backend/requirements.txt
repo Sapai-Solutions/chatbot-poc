@@ -28,3 +28,9 @@ email-validator==2.2.*
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 python-dotenv==1.0.*
+
+# ── AI / LangChain ─────────────────────────────────────────────────────────────
+langgraph==0.3.*
+langchain==0.3.*
+langchain-openai==0.3.*
+langchain-community==0.3.*

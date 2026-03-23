@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Chat from './pages/Chat'
 import Home from './pages/Home'
 import DesignSystem from './pages/template/DesignSystem'
 
@@ -13,7 +14,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Chat />} />
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/home" element={<Home />} />
         <Route path="/design-system" element={<DesignSystem />} />
       </Routes>
     </BrowserRouter>

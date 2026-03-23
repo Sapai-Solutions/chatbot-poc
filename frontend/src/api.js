@@ -53,6 +53,20 @@ export async function fetchApi(path, options = {}) {
 
 export const getHealth = () => fetchApi('/api/health')
 
+// ── Chat ───────────────────────────────────────────────────────────────────────
+
+export const sendChatMessage = (message, sessionId = null) =>
+  fetchApi('/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, session_id: sessionId }),
+  })
+
+export const getChatHistory = (sessionId) =>
+  fetchApi(`/api/chat/history/${sessionId}`)
+
+export const clearChatHistory = (sessionId) =>
+  fetchApi(`/api/chat/history/${sessionId}`, { method: 'DELETE' })
+
 // ── Add your API functions below ──────────────────────────────────────────────
 // Group by resource, e.g.:
 //

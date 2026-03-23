@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     # ── Cache ─────────────────────────────────────────────────────────────────
     CACHE_TTL: int = 300  # seconds
 
+    # ── LLM Configuration ─────────────────────────────────────────────────────
+    LLM_MODEL: str = "Qwen3.5-27B"
+    LLM_BASE_URL: str = "http://100.71.19.113:8998/v1"
+    LLM_API_KEY: str = "not-needed"  # Local deployment doesn't require key
+    LLM_TEMPERATURE: float = 0.7
+    LLM_MAX_TOKENS: int = 4096
+
     # ── Computed properties ───────────────────────────────────────────────────
     @property
     def cors_origins_list(self) -> List[str]:

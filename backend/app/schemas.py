@@ -32,4 +32,29 @@ class HealthResponse(BaseModel):
     environment: str
 
 
-# ── Add your schemas below ────────────────────────────────────────────────────
+# ── Chat Schemas ───────────────────────────────────────────────────────────────
+
+class ChatMessage(BaseModel):
+    """A single chat message."""
+    role: str  # "user" or "assistant"
+    content: str
+
+
+class ChatRequest(BaseModel):
+    """Request body for chat endpoint."""
+    message: str
+    session_id: str | None = None  # Optional for conversation persistence
+
+
+class ChatResponse(BaseModel):
+    """Response from chat endpoint."""
+    message: str
+    session_id: str
+    tool_calls: list[dict] | None = None
+
+
+class ToolCallInfo(BaseModel):
+    """Information about a tool call made by the agent."""
+    tool_name: str
+    arguments: dict
+    result: str | None = None

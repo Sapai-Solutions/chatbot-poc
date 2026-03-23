@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import health
+from app.routers import chat, health
 
 settings = get_settings()
 
@@ -57,6 +57,7 @@ app.add_middleware(
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(health.router)
+app.include_router(chat.router, prefix="/api")
 
 # Add your routers here, e.g.:
 # from app.routers import users, items

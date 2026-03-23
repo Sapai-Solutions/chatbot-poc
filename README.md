@@ -1,8 +1,24 @@
-# Chatbot Poc
+# Chatbot POC
 
-A production-ready full-stack application built with **aras-fullstack-template** by Aras Integrasi.
+An AI-powered chatbot template with LangGraph integration, built with **aras-fullstack-template** by Aras Integrasi.
+
+Features LangGraph agent with tool calling capabilities, knowledge base integration, and a modern React frontend.
 
 `docker compose up` → start building.
+
+---
+
+## Notion Documentation
+
+**Document Hub**: Chatbot POC - AI Assistant Template
+- Status: Create manually in Notion Document Hub
+- Categories: PoC, Documentation
+- Content to include:
+  - Overview and features
+  - Tech stack details
+  - Getting started guide
+  - API endpoints reference
+  - Link to GitHub repo
 
 ---
 
