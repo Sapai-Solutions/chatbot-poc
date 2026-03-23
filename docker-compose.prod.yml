@@ -1,0 +1,64 @@
+# ── aras-fullstack-template — PRODUCTION overrides ───────────────────────────
+#
+# This file MERGES with docker-compose.yml. Run both together:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   See README.md for full usage instructions.
+#
+# What changes in production:
+#   - Backend: prod stage (gunicorn + UvicornWorker, no --reload)
+#   - Backend: no bind mounts (code is baked into image)
+#   - Frontend: prod stage (nginx:alpine serving pre-built dist/)
+#   - Nginx: prod.conf (gzip, security headers, serves frontend nginx)
+#   - Nginx: port 80 (not 8080)
+#   - All services: restart: unless-stopped (auto-recover from crashes)
+#   - Celery: prod build target when started with --profile celery
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  db:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      target: production      # Gunicorn + UvicornWorker, non-root user
+    volumes: []               # No bind mounts — code is copied into image
+    restart: unless-stopped
+
+  celery-worker:
+    build:
+      context: ./backend
+      target: production
+    volumes: []
+    restart: unless-stopped
+    profiles:
+      - celery
+
+  celery-beat:
+    build:
+      context: ./backend
+      target: production
+    volumes: []
+    restart: unless-stopped
+    profiles:
+      - celery
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production      # nginx:alpine serving pre-built static files
+    ports: []                 # No direct port exposure — nginx proxy handles it
+    volumes: []
+    environment: []           # Clear dev HMR env vars
+    restart: unless-stopped
+
+  nginx:
+    ports:
+      - "80:80"               # Serve on standard port 80 in production
+    volumes:
+      - ./nginx/prod.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped

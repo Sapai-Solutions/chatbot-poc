@@ -1,0 +1,146 @@
+# ── aras-fullstack-template — DEVELOPMENT docker-compose ──────────────────────
+#
+# DEFAULT ENVIRONMENT: development
+# Run with: docker compose up
+#
+# Production: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Optional services (Celery workers):
+#   docker compose --profile celery up
+#   Or permanently: add COMPOSE_PROFILES=celery to your .env
+#
+# ── PORT REFERENCE ────────────────────────────────────────────────────────────
+#   http://localhost:8080  — App entry point (nginx proxy)
+#   http://localhost:3000  — Frontend direct (Vite dev server)
+#   http://localhost:8000  — Backend direct (FastAPI)
+#   localhost:5432         — PostgreSQL + TimescaleDB
+#   localhost:6379         — Redis
+#
+# ⚠️  See README.md > Port Conflicts if these ports are in use on your machine.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL + TimescaleDB ────────────────────────────────────────────────
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: kpdn-tribunal-transcriber-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kpdn_db}
+      POSTGRES_USER: ${POSTGRES_USER:-kpdn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kpdn} -d ${POSTGRES_DB:-kpdn_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s  # Grace period for first-boot initialization
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: kpdn-tribunal-transcriber-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend (FastAPI) ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      target: development     # Uses dev stage: no COPY, relies on bind mount
+    container_name: kpdn-tribunal-transcriber-backend
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app        # Bind mount enables uvicorn --reload hot reload
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Celery Worker (optional — start with: docker compose --profile celery up)
+  celery-worker:
+    build:
+      context: ./backend
+      target: development
+    container_name: kpdn-tribunal-transcriber-celery-worker
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    env_file: .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - celery
+
+  # ── Celery Beat (optional — start with: docker compose --profile celery up)
+  celery-beat:
+    build:
+      context: ./backend
+      target: development
+    container_name: kpdn-tribunal-transcriber-celery-beat
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file: .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - celery
+
+  # ── Frontend (React + Vite) ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      target: development     # Uses dev stage: Vite dev server with HMR
+    container_name: kpdn-tribunal-transcriber-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app       # Bind mount for HMR file watching
+      - /app/node_modules     # Anonymous volume: prevents host node_modules
+                              # from overwriting container's compiled modules
+                              # (critical on Windows and macOS)
+    depends_on:
+      - backend
+    environment:
+      - WATCHPACK_POLLING=true    # Enables Vite HMR on Windows/macOS
+      - CHOKIDAR_USEPOLLING=true  # Fallback file watcher polling
+
+  # ── Nginx (reverse proxy) ────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: kpdn-tribunal-transcriber-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+
+# ── Named volumes ─────────────────────────────────────────────────────────────
+# Named volumes persist across `docker compose down`.
+# Use `docker compose down -v` to delete them.
+volumes:
+  pgdata:
+  redisdata:
