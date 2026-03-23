@@ -67,6 +67,93 @@ export const getChatHistory = (sessionId) =>
 export const clearChatHistory = (sessionId) =>
   fetchApi(`/api/chat/history/${sessionId}`, { method: 'DELETE' })
 
+/**
+ * Stream chat responses using Server-Sent Events.
+ *
+ * @param {string} message - User message
+ * @param {string|null} sessionId - Session ID
+ * @param {object} callbacks - Event handlers:
+ *   - onToken(token): Called for each token
+ *   - onToolStart(tools): Called when tools are invoked
+ *   - onToolResult(tool, result): Called when tool completes
+ *   - onMessageStart(sessionId): Called when stream starts
+ *   - onMessageEnd(fullMessage, sessionId, toolCalls): Called when complete
+ *   - onError(error): Called on error
+ * @returns {Promise<void>}
+ */
+export async function streamChatMessage(message, sessionId = null, callbacks = {}) {
+  const {
+    onToken = () => {},
+    onToolStart = () => {},
+    onToolResult = () => {},
+    onMessageStart = () => {},
+    onMessageEnd = () => {},
+    onError = () => {},
+  } = callbacks
+
+  const response = await fetch(`${API_BASE}/api/chat/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ message, session_id: sessionId }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const chunk = decoder.decode(value, { stream: true })
+      const lines = chunk.split('\n\n')
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+
+        // Parse SSE format
+        const eventMatch = line.match(/^event: (.+)$/m)
+        const dataMatch = line.match(/^data: (.+)$/m)
+
+        if (eventMatch && dataMatch) {
+          const event = eventMatch[1]
+          const data = JSON.parse(dataMatch[1])
+
+          switch (event) {
+            case 'message_start':
+              onMessageStart(data.session_id)
+              break
+            case 'tool_start':
+              onToolStart(data.tools)
+              break
+            case 'tool_result':
+              onToolResult(data.tool, data.result)
+              break
+            case 'token':
+              onToken(data.token)
+              break
+            case 'message_end':
+              onMessageEnd(data.full_message, data.session_id, data.tool_calls)
+              break
+            case 'error':
+              onError(data.error)
+              break
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
 // ── Add your API functions below ──────────────────────────────────────────────
 // Group by resource, e.g.:
 //

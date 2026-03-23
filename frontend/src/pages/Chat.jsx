@@ -1,19 +1,22 @@
 /**
- * Chat.jsx — AI Chatbot Interface with LangGraph Integration
+ * Chat.jsx — AI Chatbot Interface with LangGraph Integration & Streaming
  *
  * Features:
- * - Real-time chat with AI assistant
+ * - Real-time streaming chat with AI assistant
+ * - Markdown rendering with GitHub-flavored markdown
  * - Tool call visualization
  * - Conversation history
  * - Session management
  * - Clean, modern design
  */
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Send, Bot, User, RefreshCw, Trash2, Clock, Database, Sparkles } from 'lucide-react'
 
-import { sendChatMessage, clearChatHistory } from '../api'
+import { streamChatMessage, clearChatHistory } from '../api'
 
 const WELCOME_MESSAGE = {
   role: 'assistant',
@@ -23,47 +26,103 @@ const WELCOME_MESSAGE = {
 export default function Chat() {
   const [messages, setMessages] = useState([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
+  const [isStreaming, setIsStreaming] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId, setSessionId] = useState(null)
   const [toolCalls, setToolCalls] = useState([])
+  const [streamingContent, setStreamingContent] = useState('')
+  const [activeTools, setActiveTools] = useState([])
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages or streaming content
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, streamingContent])
 
   // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || isStreaming) return
 
     const userMessage = input.trim()
     setInput('')
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }])
+    setIsStreaming(true)
     setIsLoading(true)
+    setStreamingContent('')
+    setActiveTools([])
+
+    let currentSessionId = sessionId
+    const receivedToolCalls = []
 
     try {
-      const response = await sendChatMessage(userMessage, sessionId)
+      await streamChatMessage(userMessage, sessionId, {
+        onMessageStart: (newSessionId) => {
+          if (!currentSessionId && newSessionId) {
+            currentSessionId = newSessionId
+            setSessionId(newSessionId)
+          }
+          setIsLoading(false)
+        },
 
-      // Update session ID if new
-      if (response.session_id && !sessionId) {
-        setSessionId(response.session_id)
-      }
+        onToolStart: (tools) => {
+          setActiveTools(tools.map(t => t.name || t.function?.name || 'unknown'))
+        },
 
-      // Track tool calls
-      if (response.tool_calls) {
-        setToolCalls(response.tool_calls)
-      }
+        onToolResult: (tool, result) => {
+          receivedToolCalls.push({
+            tool_name: tool,
+            result: typeof result === 'string' ? result : JSON.stringify(result),
+          })
+        },
 
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: response.message },
-      ])
+        onToken: (token) => {
+          setStreamingContent((prev) => prev + token)
+        },
+
+        onMessageEnd: (fullMessage, finalSessionId, finalToolCalls) => {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: fullMessage },
+          ])
+          setStreamingContent('')
+          setIsStreaming(false)
+          setActiveTools([])
+
+          if (finalSessionId && !sessionId) {
+            setSessionId(finalSessionId)
+          }
+
+          // Merge tool calls from final response with real-time results
+          const tools = finalToolCalls || []
+          if (tools.length > 0) {
+            setToolCalls(tools.map((t, i) => ({
+              tool_name: t.name || t.function?.name || 'unknown',
+              arguments: t.args || t.function?.arguments || {},
+              result: receivedToolCalls[i]?.result || t.result,
+            })))
+          }
+        },
+
+        onError: (error) => {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: 'Sorry, I encountered an error. Please try again.',
+              isError: true,
+            },
+          ])
+          setStreamingContent('')
+          setIsStreaming(false)
+          setIsLoading(false)
+          setActiveTools([])
+        },
+      })
     } catch (error) {
       setMessages((prev) => [
         ...prev,
@@ -73,10 +132,12 @@ export default function Chat() {
           isError: true,
         },
       ])
-    } finally {
+      setStreamingContent('')
+      setIsStreaming(false)
       setIsLoading(false)
+      setActiveTools([])
     }
-  }
+  }, [input, sessionId, isStreaming])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -96,6 +157,41 @@ export default function Chat() {
     setMessages([WELCOME_MESSAGE])
     setSessionId(null)
     setToolCalls([])
+    setStreamingContent('')
+    setIsStreaming(false)
+    setIsLoading(false)
+    setActiveTools([])
+  }
+
+  // Markdown components for styling
+  const markdownComponents = {
+    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+    ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+    ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+    li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+    code: ({ children, inline }) =>
+      inline ? (
+        <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">
+          {children}
+        </code>
+      ) : (
+        <pre className="bg-muted p-3 rounded-lg overflow-x-auto my-2">
+          <code className="text-sm font-mono">{children}</code>
+        </pre>
+      ),
+    h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+    h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
+    h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+    a: ({ href, children }) => (
+      <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    ),
+    blockquote: ({ children }) => (
+      <blockquote className="border-l-2 border-primary pl-3 italic my-2 text-muted-foreground">
+        {children}
+      </blockquote>
+    ),
   }
 
   return (
@@ -110,7 +206,7 @@ export default function Chat() {
             <div>
               <h1 className="font-semibold text-foreground">AI Assistant</h1>
               <p className="text-sm text-muted-foreground">
-                Powered by LangGraph
+                Powered by LangGraph • Streaming Enabled
               </p>
             </div>
           </div>
@@ -118,7 +214,7 @@ export default function Chat() {
           <div className="flex items-center gap-2">
             {/* Tool Call Indicator */}
             <AnimatePresence>
-              {toolCalls.length > 0 && (
+              {(toolCalls.length > 0 || activeTools.length > 0) && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -126,7 +222,11 @@ export default function Chat() {
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-sm"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>{toolCalls.length} tool call(s)</span>
+                  <span>
+                    {activeTools.length > 0
+                      ? `Using ${activeTools.join(', ')}...`
+                      : `${toolCalls.length} tool call(s)`}
+                  </span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -185,16 +285,52 @@ export default function Chat() {
                         : 'bg-card border'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {message.content}
-                    </p>
+                    {message.role === 'user' ? (
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {message.content}
+                      </p>
+                    ) : (
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={markdownComponents}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))}
             </AnimatePresence>
 
-            {/* Loading Indicator */}
-            {isLoading && (
+            {/* Streaming Message */}
+            {isStreaming && streamingContent && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex gap-4"
+              >
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Bot className="w-4 h-4 text-primary" />
+                </div>
+                <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-card border">
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
+                      {streamingContent}
+                    </ReactMarkdown>
+                  </div>
+                  {/* Cursor indicator for streaming */}
+                  <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5 align-middle" />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Loading Indicator (before streaming starts) */}
+            {isLoading && !streamingContent && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -239,7 +375,7 @@ export default function Chat() {
                     placeholder="Type your message..."
                     className="input resize-none min-h-[52px] max-h-32 pr-12"
                     rows={1}
-                    disabled={isLoading}
+                    disabled={isStreaming}
                     style={{
                       height: 'auto',
                       minHeight: '52px',
@@ -248,10 +384,10 @@ export default function Chat() {
                 </div>
                 <button
                   onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
+                  disabled={!input.trim() || isStreaming}
                   className="btn-primary px-4 disabled:opacity-50"
                 >
-                  {isLoading ? (
+                  {isStreaming ? (
                     <RefreshCw className="w-5 h-5 animate-spin" />
                   ) : (
                     <Send className="w-5 h-5" />
@@ -259,7 +395,7 @@ export default function Chat() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground mt-2 text-center">
-                Press Enter to send, Shift+Enter for new line
+                Press Enter to send, Shift+Enter for new line • Markdown supported
               </p>
             </div>
           </div>

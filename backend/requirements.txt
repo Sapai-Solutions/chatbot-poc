@@ -34,3 +34,6 @@ langgraph==0.3.*
 langchain==0.3.*
 langchain-openai==0.3.*
 langchain-community==0.3.*
+
+# ── Markdown Processing ───────────────────────────────────────────────────────
+markdown==3.7.*
