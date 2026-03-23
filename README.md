@@ -8,17 +8,19 @@ Features LangGraph agent with tool calling capabilities, knowledge base integrat
 
 ---
 
-## Notion Documentation
+## Documentation
 
-**Document Hub**: Chatbot POC - AI Assistant Template
-- Status: Create manually in Notion Document Hub
-- Categories: PoC, Documentation
-- Content to include:
-  - Overview and features
-  - Tech stack details
-  - Getting started guide
-  - API endpoints reference
-  - Link to GitHub repo
+- **Notion**: https://www.notion.so/Chatbot-POC-AI-Assistant-Template-32cf927f17708122a2e3c1c506522b57
+- **GitHub**: https://github.com/Sapai-Solutions/chatbot-poc
+
+The Notion page includes:
+- Architecture deep dive (LangGraph ReAct pattern)
+- Tool definitions and state management
+- Frontend component structure
+- Knowledge base integration guide
+- Deployment instructions
+- Localization guide for downstream use cases
+- Extensibility updates (env-based configuration)
 
 ---
 
