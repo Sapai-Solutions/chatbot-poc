@@ -4,6 +4,7 @@
 .env.production
 .env.staging
 *.env
+.git-credentials-reference
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
