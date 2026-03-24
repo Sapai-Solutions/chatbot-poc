@@ -22,6 +22,8 @@ Example:
         model_config = {"from_attributes": True}
 """
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -77,6 +79,7 @@ class ChatMessageSchema(BaseModel):
 class ChatSessionBase(BaseModel):
     """Base schema for chat sessions."""
     title: str | None = None
+    summary: str | None = None
 
 
 class ChatSessionCreate(ChatSessionBase):
@@ -88,6 +91,7 @@ class ChatSessionResponse(ChatSessionBase):
     """Schema for chat session response with metadata."""
     id: str
     title: str | None
+    summary: str | None = None
     created_at: datetime
     updated_at: datetime
     message_count: int = 0

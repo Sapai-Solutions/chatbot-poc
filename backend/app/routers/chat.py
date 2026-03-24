@@ -21,6 +21,7 @@ from app.models import ChatMessage, ChatSession
 from app.schemas import ChatRequest, ChatResponse
 from app.services.agent import process_chat_message
 from app.services.agent_streaming import stream_chat_response
+from app.services.session_summarizer import generate_session_title_and_summary
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -116,12 +117,21 @@ async def chat(
         )
         db.add(assistant_msg)
 
-        # Generate title for new sessions on first message
+        # Generate title and summary for new sessions on first message
         if not session.title and len(history) == 0:
-            # Use first 50 chars of user message as title
-            session.title = request.message[:50] + (
-                "..." if len(request.message) > 50 else ""
-            )
+            try:
+                new_messages = [
+                    {"role": "user", "content": request.message},
+                    {"role": "assistant", "content": result["message"]},
+                ]
+                title, summary = await generate_session_title_and_summary(new_messages)
+                session.title = title
+                session.summary = summary
+            except Exception as exc:
+                logger.warning(f"Session summarization failed: {exc}")
+                session.title = request.message[:50] + (
+                    "..." if len(request.message) > 50 else ""
+                )
 
         await db.flush()
 
@@ -251,11 +261,21 @@ async def chat_stream(
             )
             db.add(assistant_msg)
 
-            # Generate title for new sessions
+            # Generate title and summary for new sessions
             if not session.title and len(history) == 0:
-                session.title = request.message[:50] + (
-                    "..." if len(request.message) > 50 else ""
-                )
+                try:
+                    new_messages = [
+                        {"role": "user", "content": request.message},
+                        {"role": "assistant", "content": full_message},
+                    ]
+                    title, summary = await generate_session_title_and_summary(new_messages)
+                    session.title = title
+                    session.summary = summary
+                except Exception as exc:
+                    logger.warning(f"Session summarization failed: {exc}")
+                    session.title = request.message[:50] + (
+                        "..." if len(request.message) > 50 else ""
+                    )
 
             # We need a separate session for the generator since we're in an async generator
             # The main db session will commit when the request ends

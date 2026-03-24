@@ -10,6 +10,8 @@ import {
   Trash2,
   MessageSquare,
   Calendar,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 
 export default function SessionSidebar({
@@ -22,6 +24,7 @@ export default function SessionSidebar({
   onToggle,
 }) {
   const [deletingId, setDeletingId] = useState(null)
+  const [expandedId, setExpandedId] = useState(null)
 
   const handleDelete = async (e, sessionId) => {
     e.stopPropagation()
@@ -56,6 +59,17 @@ export default function SessionSidebar({
     return title.substring(0, maxLength) + '...'
   }
 
+  const trimSummary = (summary, maxLength = 80) => {
+    if (!summary) return null
+    if (summary.length <= maxLength) return summary
+    return summary.substring(0, maxLength) + '...'
+  }
+
+  const toggleExpand = (e, sessionId) => {
+    e.stopPropagation()
+    setExpandedId((prev) => (prev === sessionId ? null : sessionId))
+  }
+
   return (
     <>
       {/* Toggle button - visible when sidebar is closed */}
@@ -79,7 +93,7 @@ export default function SessionSidebar({
             animate={{ width: 280, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', duration: 0.4, bounce: 0.1 }}
-            className="border-r border-border bg-sidebar flex flex-col h-screen overflow-hidden"
+            className="border-r border-border bg-sidebar flex flex-col h-full overflow-hidden"
           >
             {/* Header */}
             <div className="p-4 border-b border-border/50 flex items-center justify-between">
@@ -107,7 +121,7 @@ export default function SessionSidebar({
             </div>
 
             {/* Sessions List */}
-            <div className="flex-1 overflow-y-auto px-3 pb-4">
+            <div className="overflow-y-auto max-h-[calc(100vh-10rem)] px-3 pb-4">
               {sessions.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -116,13 +130,16 @@ export default function SessionSidebar({
               ) : (
                 <div className="space-y-1">
                   {sessions.map((session, index) => (
-                    <motion.button
+                    <motion.div
                       key={session.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.03 }}
                       onClick={() => onSelectSession(session.id)}
-                      className={`w-full text-left p-3 rounded-lg group transition-all ${
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelectSession(session.id)}
+                      role="button"
+                      tabIndex={0}
+                      className={`w-full text-left p-3 rounded-lg group transition-all cursor-pointer ${
                         currentSessionId === session.id
                           ? 'bg-sidebar-active'
                           : 'hover:bg-sidebar-active/50'
@@ -133,6 +150,40 @@ export default function SessionSidebar({
                           <p className="text-sm font-medium text-sidebar-foreground truncate">
                             {truncateTitle(session.title)}
                           </p>
+
+                          {/* Summary area */}
+                          {session.summary ? (
+                            <div className="mt-1">
+                              <p className="text-xs text-muted-foreground leading-relaxed">
+                                {expandedId === session.id
+                                  ? session.summary
+                                  : trimSummary(session.summary)}
+                              </p>
+                              {session.summary.length > 80 && (
+                                <button
+                                  onClick={(e) => toggleExpand(e, session.id)}
+                                  className="flex items-center gap-0.5 mt-0.5 text-[10px] text-primary/70 hover:text-primary transition-colors"
+                                >
+                                  {expandedId === session.id ? (
+                                    <>
+                                      <ChevronUp className="w-3 h-3" />
+                                      Less
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="w-3 h-3" />
+                                      More
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground/50 italic mt-1">
+                              No summary available
+                            </p>
+                          )}
+
                           <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
                             <Calendar className="w-3 h-3" />
                             {formatDate(session.updated_at || session.created_at)}
@@ -147,7 +198,7 @@ export default function SessionSidebar({
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                    </motion.button>
+                    </motion.div>
                   ))}
                 </div>
               )}

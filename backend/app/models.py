@@ -41,6 +41,9 @@ class ChatSession(Base):
     title: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )  # Auto-generated or user-provided
+    summary: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # LLM-generated session summary
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

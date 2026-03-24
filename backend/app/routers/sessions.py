@@ -59,6 +59,7 @@ async def list_sessions(
         session_dict = {
             "id": session.id,
             "title": session.title,
+            "summary": session.summary,
             "created_at": session.created_at,
             "updated_at": session.updated_at,
             "message_count": msg_count,
@@ -89,6 +90,7 @@ async def create_session(
         {
             "id": session.id,
             "title": session.title,
+            "summary": session.summary,
             "created_at": session.created_at,
             "updated_at": session.updated_at,
             "message_count": 0,
@@ -160,6 +162,7 @@ async def get_session(
         {
             "id": session.id,
             "title": session.title,
+            "summary": session.summary,
             "created_at": session.created_at,
             "updated_at": session.updated_at,
             "message_count": message_count,
