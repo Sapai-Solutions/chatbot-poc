@@ -58,3 +58,45 @@ class ToolCallInfo(BaseModel):
     tool_name: str
     arguments: dict
     result: str | None = None
+
+
+# ── Session Schemas ────────────────────────────────────────────────────────────
+
+
+class ChatMessageSchema(BaseModel):
+    """A chat message for response serialization."""
+    id: str
+    role: str
+    content: str
+    tool_calls: list[dict] | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ChatSessionBase(BaseModel):
+    """Base schema for chat sessions."""
+    title: str | None = None
+
+
+class ChatSessionCreate(ChatSessionBase):
+    """Schema for creating a new chat session."""
+    pass
+
+
+class ChatSessionResponse(ChatSessionBase):
+    """Schema for chat session response with metadata."""
+    id: str
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
+    message_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class ChatSessionDetail(ChatSessionResponse):
+    """Schema for chat session with full message history."""
+    messages: list[ChatMessageSchema] = []
+
+    model_config = {"from_attributes": True}

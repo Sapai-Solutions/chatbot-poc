@@ -154,9 +154,39 @@ export async function streamChatMessage(message, sessionId = null, callbacks = {
   }
 }
 
-// ── Add your API functions below ──────────────────────────────────────────────
-// Group by resource, e.g.:
-//
-// export const getUsers = () => fetchApi('/api/users')
-// export const createUser = (data) => fetchApi('/api/users', { method: 'POST', body: JSON.stringify(data) })
-// export const deleteUser = (id) => fetchApi(`/api/users/${id}`, { method: 'DELETE' })
+// ── Sessions ───────────────────────────────────────────────────────────────────
+
+export const getSessions = () => fetchApi('/api/chat/sessions')
+
+export const deleteSession = (sessionId) =>
+  fetchApi(`/api/chat/sessions/${sessionId}`, { method: 'DELETE' })
+
+export const renameSession = (sessionId, title) =>
+  fetchApi(`/api/chat/sessions/${sessionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  })
+
+// ── Knowledge Base ─────────────────────────────────────────────────────────────
+
+export const getKnowledgeBaseDocuments = () => fetchApi('/api/knowledge-base')
+
+export const uploadDocument = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return fetch(`${API_BASE}/api/knowledge-base/upload`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  }).then((response) => {
+    if (!response.ok) {
+      return response.json().then((error) => {
+        throw new Error(error.detail || `HTTP ${response.status}`)
+      })
+    }
+    return response.json()
+  })
+}
+
+export const deleteDocument = (documentId) =>
+  fetchApi(`/api/knowledge-base/${documentId}`, { method: 'DELETE' })
