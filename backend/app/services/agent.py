@@ -9,6 +9,7 @@ This service implements a ReAct agent pattern using LangGraph that can:
 import json
 import logging
 from datetime import datetime
+from functools import partial
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
@@ -45,9 +46,9 @@ def get_current_time() -> str:
 
 @tool
 def query_knowledge_base(query: str) -> str:
-    """Query the knowledge base for information.
+    """Query the knowledge base for information relevant to the user's question.
 
-    Configure KNOWLEDGE_BASE_URL in .env to connect to your RAG service.
+    Searches parliamentary documents and speaker transcripts using semantic search.
 
     Args:
         query: The search query
@@ -65,28 +66,78 @@ def query_knowledge_base(query: str) -> str:
         )
 
     try:
-        headers = {}
+        headers = {"Content-Type": "application/json"}
         if settings.KNOWLEDGE_BASE_API_KEY:
             headers["Authorization"] = f"Bearer {settings.KNOWLEDGE_BASE_API_KEY}"
 
+        collection_names = [
+            name.strip()
+            for name in settings.KB_COLLECTION_NAMES.split(",")
+            if name.strip()
+        ]
+
+        payload = {
+            "query": query,
+            "reranker_top_k": settings.KB_RERANKER_TOP_K,
+            "vdb_top_k": settings.KB_VDB_TOP_K,
+            "vdb_endpoint": settings.KB_VDB_ENDPOINT,
+            "collection_names": collection_names,
+            "messages": [],
+            "enable_query_rewriting": False,
+            "enable_reranker": settings.KB_ENABLE_RERANKER,
+            "enable_filter_generator": False,
+            "embedding_model": settings.KB_EMBEDDING_MODEL,
+            "embedding_endpoint": settings.KB_EMBEDDING_ENDPOINT,
+            "reranker_model": settings.KB_RERANKER_MODEL,
+            "reranker_endpoint": settings.KB_RERANKER_ENDPOINT,
+            "filter_expr": "",
+            "confidence_threshold": 0,
+        }
+
         with httpx.Client(timeout=30.0) as client:
             response = client.post(
-                f"{kb_url}/query",
-                json={"query": query},
+                f"{kb_url}/search",
+                json=payload,
                 headers=headers,
             )
             response.raise_for_status()
             data = response.json()
 
-            # Extract answer from common RAG response formats
-            if "answer" in data:
-                return data["answer"]
-            elif "response" in data:
-                return data["response"]
-            elif "result" in data:
-                return data["result"]
-            else:
-                return str(data)
+            results = data.get("results", [])
+            if not results:
+                return f"No results found in the knowledge base for query: '{query}'"
+
+            # Format results into a readable context string
+            formatted_parts = []
+            for i, result in enumerate(results, 1):
+                content = result.get("content", "").strip()
+                doc_name = result.get("document_name", "unknown")
+                score = result.get("score", 0)
+
+                # Extract useful metadata
+                metadata = result.get("metadata", {})
+                content_meta = metadata.get("content_metadata", {})
+                speaker = content_meta.get("speaker_name", "")
+                session_date = content_meta.get("session_date", "")
+                dewan = content_meta.get("dewan", "")
+                alt_name = content_meta.get("alt_name", "")
+
+                part = f"[Result {i}] (score: {score:.3f})\n"
+                if speaker:
+                    speaker_display = alt_name if alt_name else speaker
+                    part += f"Speaker: {speaker_display}\n"
+                if session_date:
+                    part += f"Date: {session_date}"
+                if dewan:
+                    part += f" | {dewan.title()}"
+                part += f"\nSource: {doc_name}\n"
+                part += f"Content: {content}"
+
+                formatted_parts.append(part)
+
+            total = data.get("total_results", len(results))
+            header = f"Found {total} results for '{query}':\n\n"
+            return header + "\n\n---\n\n".join(formatted_parts)
 
     except httpx.HTTPStatusError as e:
         logger.error(f"Knowledge base query failed: {e}")
@@ -96,7 +147,7 @@ def query_knowledge_base(query: str) -> str:
         return f"Could not connect to knowledge base at {kb_url}"
     except Exception as e:
         logger.error(f"Unexpected error in knowledge base query: {e}")
-        return f"Error processing knowledge base query: {str(e)}""
+        return f"Error processing knowledge base query: {str(e)}"
 
 
 # ── Agent Setup ─────────────────────────────────────────────────────────────────
@@ -106,12 +157,14 @@ def create_agent() -> StateGraph:
     """Create and configure the LangGraph agent."""
 
     # Initialize the LLM with Qwen3.5-27B deployed model
+    # streaming=True enables token-level events in astream_events()
     llm = ChatOpenAI(
         model=settings.LLM_MODEL,
         temperature=settings.LLM_TEMPERATURE,
         max_tokens=settings.LLM_MAX_TOKENS,
         api_key=settings.LLM_API_KEY,
         base_url=settings.LLM_BASE_URL,
+        streaming=True,
     )
 
     # Bind tools to the LLM
@@ -121,9 +174,9 @@ def create_agent() -> StateGraph:
     # Define the workflow
     workflow = StateGraph(AgentState)
 
-    # Add nodes
-    workflow.add_node("agent", lambda state: agent_node(state, llm_with_tools))
-    workflow.add_node("tools", lambda state: tool_node(state, tools))
+    # Add nodes — use partial() to preserve async detection by LangGraph
+    workflow.add_node("agent", partial(agent_node, llm_with_tools=llm_with_tools))
+    workflow.add_node("tools", partial(tool_node, tools=tools))
 
     # Add edges
     workflow.add_edge(START, "agent")
@@ -140,10 +193,10 @@ def create_agent() -> StateGraph:
     return workflow.compile()
 
 
-def agent_node(state: AgentState, llm_with_tools) -> dict:
+async def agent_node(state: AgentState, llm_with_tools) -> dict:
     """The agent node that processes messages and decides on tool calls."""
     messages = state["messages"]
-    response = llm_with_tools.invoke(messages)
+    response = await llm_with_tools.ainvoke(messages)
 
     # Track tool calls
     tool_calls = []
@@ -252,9 +305,9 @@ async def process_chat_message(
         tool_calls=[],
     )
 
-    # Execute the agent
+    # Execute the agent (ainvoke for async graph)
     try:
-        result = agent.invoke(initial_state)
+        result = await agent.ainvoke(initial_state)
         final_message = result["messages"][-1]
 
         # Extract tool call information

@@ -107,24 +107,36 @@ export async function streamChatMessage(message, sessionId = null, callbacks = {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
 
+  let buffer = ''
+
   try {
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
 
-      const chunk = decoder.decode(value, { stream: true })
-      const lines = chunk.split('\n\n')
+      // Accumulate into a buffer so events split across chunks are handled
+      buffer += decoder.decode(value, { stream: true })
 
-      for (const line of lines) {
-        if (!line.trim()) continue
+      // SSE events are delimited by double-newline
+      const parts = buffer.split('\n\n')
+      // Last element may be an incomplete event — keep it in the buffer
+      buffer = parts.pop() || ''
 
-        // Parse SSE format
-        const eventMatch = line.match(/^event: (.+)$/m)
-        const dataMatch = line.match(/^data: (.+)$/m)
+      for (const part of parts) {
+        if (!part.trim()) continue
+
+        // Parse SSE format: "event: <name>\ndata: <json>"
+        const eventMatch = part.match(/^event: (.+)$/m)
+        const dataMatch = part.match(/^data: (.+)$/m)
 
         if (eventMatch && dataMatch) {
           const event = eventMatch[1]
-          const data = JSON.parse(dataMatch[1])
+          let data
+          try {
+            data = JSON.parse(dataMatch[1])
+          } catch {
+            continue
+          }
 
           switch (event) {
             case 'message_start':
@@ -156,13 +168,13 @@ export async function streamChatMessage(message, sessionId = null, callbacks = {
 
 // ── Sessions ───────────────────────────────────────────────────────────────────
 
-export const getSessions = () => fetchApi('/api/chat/sessions')
+export const getSessions = () => fetchApi('/api/sessions')
 
 export const deleteSession = (sessionId) =>
-  fetchApi(`/api/chat/sessions/${sessionId}`, { method: 'DELETE' })
+  fetchApi(`/api/sessions/${sessionId}`, { method: 'DELETE' })
 
 export const renameSession = (sessionId, title) =>
-  fetchApi(`/api/chat/sessions/${sessionId}`, {
+  fetchApi(`/api/sessions/${sessionId}`, {
     method: 'PATCH',
     body: JSON.stringify({ title }),
   })

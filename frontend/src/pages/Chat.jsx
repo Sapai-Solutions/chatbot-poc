@@ -142,9 +142,9 @@ export default function Chat() {
 
           if (finalSessionId && !sessionId) {
             setSessionId(finalSessionId)
-            // Refresh sessions list to show the new session
-            loadSessions()
           }
+          // Refresh sessions list to pick up new title/summary
+          loadSessions()
 
           // Merge tool calls from final response with real-time results
           const tools = finalToolCalls || []
@@ -214,19 +214,25 @@ export default function Chat() {
 
   // Markdown components for styling
   const markdownComponents = {
-    p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>,
+    // Use div instead of p to avoid block-level descendants (pre, ul, etc.) inside <p>
+    p: ({ children }) => <div className="mb-3 last:mb-0 leading-relaxed">{children}</div>,
     ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1.5">{children}</ul>,
     ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1.5">{children}</ol>,
     li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-    code: ({ children, inline }) =>
-      inline ? (
+    // pre handles the block-code wrapper; code only styles the inner element
+    pre: ({ children }) => (
+      <pre className="bg-muted p-3 rounded-lg overflow-x-auto my-3 border border-border">
+        {children}
+      </pre>
+    ),
+    // In react-markdown v9 there is no `inline` prop — detect inline by absence of a language className
+    code: ({ className, children }) =>
+      className?.startsWith('language-') ? (
+        <code className={`text-sm font-mono text-foreground ${className}`}>{children}</code>
+      ) : (
         <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground">
           {children}
         </code>
-      ) : (
-        <pre className="bg-muted p-3 rounded-lg overflow-x-auto my-3 border border-border">
-          <code className="text-sm font-mono text-foreground">{children}</code>
-        </pre>
       ),
     h1: ({ children }) => <h1 className="text-lg font-bold mb-2 text-foreground">{children}</h1>,
     h2: ({ children }) => <h2 className="text-base font-bold mb-2 text-foreground">{children}</h2>,
@@ -244,7 +250,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen overflow-hidden bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border bg-card px-6 py-4 shadow-sm">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -302,7 +308,7 @@ export default function Chat() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex w-full">
+      <main className="flex-1 flex w-full min-h-0 overflow-hidden">
         {/* Session Sidebar */}
         <SessionSidebar
           sessions={sessions}
@@ -315,7 +321,7 @@ export default function Chat() {
         />
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
+        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full min-h-0">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             <AnimatePresence mode="popLayout">
@@ -398,32 +404,26 @@ export default function Chat() {
               </motion.div>
             )}
 
-            {/* Loading Indicator (before streaming starts) */}
-            {isLoading && !streamingContent && (
+            {/* Loading Indicator (before first token arrives) */}
+            {(isLoading || isStreaming) && !streamingContent && (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
                 className="flex gap-4"
               >
-                <div className="w-8 h-8 rounded-xl bg-secondary border border-border flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-secondary border border-border flex items-center justify-center flex-shrink-0">
                   <img src="/logo.png" alt="AI" className="w-4 h-4" />
                 </div>
-                <div className="bg-card border border-border rounded-2xl rounded-bl-md px-5 py-4 flex items-center gap-2 shadow-sm">
-                  <motion.div
-                    className="w-2 h-2 rounded-full bg-primary/60"
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ repeat: Infinity, duration: 0.6 }}
-                  />
-                  <motion.div
-                    className="w-2 h-2 rounded-full bg-primary/60"
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }}
-                  />
-                  <motion.div
-                    className="w-2 h-2 rounded-full bg-primary/60"
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }}
-                  />
+                <div className="bg-card border border-border rounded-2xl rounded-bl-md px-5 py-4 flex items-center gap-1.5 shadow-sm">
+                  {[0, 0.15, 0.3].map((delay, i) => (
+                    <motion.span
+                      key={i}
+                      className="w-2 h-2 rounded-full bg-primary/60 block"
+                      animate={{ y: [0, -5, 0] }}
+                      transition={{ repeat: Infinity, duration: 0.7, delay, ease: 'easeInOut' }}
+                    />
+                  ))}
                 </div>
               </motion.div>
             )}
