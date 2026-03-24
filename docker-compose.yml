@@ -24,17 +24,17 @@ services:
   # ── PostgreSQL + TimescaleDB ────────────────────────────────────────────────
   db:
     image: timescale/timescaledb:latest-pg16
-    container_name: kpdn-tribunal-transcriber-db
+    container_name: chatbot-poc-db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-kpdn_db}
-      POSTGRES_USER: ${POSTGRES_USER:-kpdn}
+      POSTGRES_DB: ${POSTGRES_DB:-chatbotpoc_db}
+      POSTGRES_USER: ${POSTGRES_USER:-chatbotpoc}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kpdn} -d ${POSTGRES_DB:-kpdn_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chatbotpoc} -d ${POSTGRES_DB:-chatbotpoc_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,7 +43,7 @@ services:
   # ── Redis ───────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: kpdn-tribunal-transcriber-redis
+    container_name: chatbot-poc-redis
     ports:
       - "6379:6379"
     volumes:
@@ -59,7 +59,7 @@ services:
     build:
       context: ./backend
       target: development     # Uses dev stage: no COPY, relies on bind mount
-    container_name: kpdn-tribunal-transcriber-backend
+    container_name: chatbot-poc-backend
     env_file: .env
     ports:
       - "8000:8000"
@@ -76,7 +76,7 @@ services:
     build:
       context: ./backend
       target: development
-    container_name: kpdn-tribunal-transcriber-celery-worker
+    container_name: chatbot-poc-celery-worker
     command: celery -A app.celery_app worker --loglevel=info --concurrency=2
     env_file: .env
     volumes:
@@ -94,7 +94,7 @@ services:
     build:
       context: ./backend
       target: development
-    container_name: kpdn-tribunal-transcriber-celery-beat
+    container_name: chatbot-poc-celery-beat
     command: celery -A app.celery_app beat --loglevel=info
     env_file: .env
     volumes:
@@ -112,7 +112,7 @@ services:
     build:
       context: ./frontend
       target: development     # Uses dev stage: Vite dev server with HMR
-    container_name: kpdn-tribunal-transcriber-frontend
+    container_name: chatbot-poc-frontend
     ports:
       - "3000:3000"
     volumes:
@@ -129,7 +129,7 @@ services:
   # ── Nginx (reverse proxy) ────────────────────────────────────────────────────
   nginx:
     image: nginx:alpine
-    container_name: kpdn-tribunal-transcriber-nginx
+    container_name: chatbot-poc-nginx
     ports:
       - "8080:80"
     volumes:
