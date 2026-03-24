@@ -1,8 +1,5 @@
 /**
- * Home.jsx — Starter page for your application.
- *
- * REPLACE THIS with your actual landing page.
- * Visit /design-system for the full design reference while building.
+ * Home.jsx — Landing page for Chatbot POC
  */
 
 import { useState, useEffect } from 'react'
@@ -22,8 +19,7 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6"
-      style={{ background: 'var(--color-ink)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-background">
 
       <motion.div
         className="text-center max-w-lg"
@@ -33,13 +29,13 @@ export default function Home() {
       >
         <img src="/logo.png" alt="Aras Integrasi" className="w-14 h-14 mx-auto mb-8" />
 
-        <h1 className="text-4xl font-bold tracking-tight mb-3"
-          style={{ color: 'var(--color-snow)' }}>
-          KPDN Tribunal Transcriber
+        <h1 className="text-4xl font-bold tracking-tight mb-3 text-foreground">
+          AI Chatbot
         </h1>
 
-        <p className="text-base mb-8" style={{ color: 'var(--color-snow-muted)' }}>
-          Your application starts here. Replace this page with your actual content.
+        <p className="text-base mb-8 text-muted-foreground">
+          A production-ready AI chatbot starter template with LangGraph integration.
+          Features streaming responses, session management, and tool calling.
         </p>
 
         {/* Status */}
@@ -60,23 +56,22 @@ export default function Home() {
 
         {/* Actions */}
         <div className="flex items-center justify-center gap-3 flex-wrap">
-          <a href="/docs" className="btn-primary text-sm px-5 py-2.5 inline-flex items-center gap-2" target="_blank" rel="noopener noreferrer">
-            API Docs
-          </a>
-          <Link to="/design-system" className="btn-secondary text-sm px-5 py-2.5 inline-flex items-center gap-2">
+          <Link to="/chat" className="btn-primary text-sm px-5 py-2.5">
+            Start Chatting
+          </Link>
+          <Link to="/design-system" className="btn-secondary text-sm px-5 py-2.5">
             Design System
           </Link>
         </div>
       </motion.div>
 
       <motion.p
-        className="mt-16 text-xs"
-        style={{ color: 'var(--color-snow-faint)' }}
+        className="mt-16 text-xs text-muted-foreground"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
       >
-        Built with aras-fullstack-template
+        Built with aras-fullstack-template · Aras Integrasi
       </motion.p>
     </div>
   )
