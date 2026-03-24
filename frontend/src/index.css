@@ -4,51 +4,73 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ARAS INTEGRASI — Design System Tokens
-   Brand: warm gold / amber palette on dark ink surfaces
-   Source: Aras Integrasi logo colour extraction
+   Brand: warm gold / amber palette on cream backgrounds
+   Source: dev-design-notes.md Section 2
 
    HOW TO USE THESE TOKENS:
-   - In Tailwind classes:  bg-parliament-400, text-ink-1, border-ink-3
-   - In CSS:               var(--color-parliament-400)
+   - In Tailwind classes: bg-background, text-foreground, border-border
+   - In CSS: var(--background), var(--primary)
    - Never use raw hex values in components — always reference a token.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── CSS Custom Properties (for use in raw CSS / component styles) ────────── */
+/* ── Light Mode (default) ─────────────────────────────────────────────────── */
 :root {
-  /* Brand: Parliament Gold */
-  --color-parliament-50:  #FFFBF0;
-  --color-parliament-100: #FFF3D6;
-  --color-parliament-200: #FFE4A8;
-  --color-parliament-300: #FFD070;
-  --color-parliament-400: #F5B731;
-  --color-parliament-500: #D4A020;
-  --color-parliament-600: #B8891A;
-  --color-parliament-700: #9A7215;
-  --color-parliament-800: #7D5C11;
-  --color-parliament-900: #5E450D;
-  --color-parliament-950: #3D2B08;
+  /* Semantic Color Tokens */
+  --background: #f8f7f2;
+  --foreground: #23272f;
+  --card: #ffffff;
+  --card-foreground: #23272f;
+  --border: #e0dbd0;
+  --input: #e0dbd0;
+  --ring: #b09548;
+  --muted: #f0ece1;
+  --muted-foreground: #717568;
+  --primary: #b09548;
+  --primary-foreground: #ffffff;
+  --secondary: #e8e3d5;
+  --secondary-foreground: #3d3f36;
+  --accent: #f3efe6;
+  --accent-foreground: #3d3f36;
+  --destructive: #c03a3a;
+  --sidebar: #eeebe2;
+  --sidebar-foreground: #3d3f36;
+  --sidebar-active: #e6dfc8;
+  --panel: #fafaf6;
 
-  /* Surfaces: Ink */
-  --color-ink:   #0A0A0A;
-  --color-ink-1: #141414;
-  --color-ink-2: #1E1E1E;
-  --color-ink-3: #282828;
-  --color-ink-4: #333333;
-  --color-ink-5: #444444;
-
-  /* Text */
-  --color-snow:       #F5F5F5;
-  --color-snow-muted: #9A9A9A;
-  --color-snow-faint: #555555;
-
-  /* Semantic */
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-error:   #EF4444;
-  --color-info:    #3B82F6;
+  /* Data Visualization Colors */
+  --color-viz-order: #C47C5A;
+  --color-viz-review: #5B7FA6;
+  --color-viz-transaction: #8B7D3A;
+  --color-viz-customer: #6B7A3A;
+  --color-viz-item: #7A9A4A;
+  --color-viz-chart-primary: #7B7FE8;
 }
 
-/* ── Base styles ───────────────────────────────────────────────────────────── */
+/* ── Dark Mode (.dark class on html) ──────────────────────────────────────── */
+.dark {
+  --background: #16140f;
+  --foreground: #e8e4da;
+  --card: #1f1c16;
+  --card-foreground: #e8e4da;
+  --border: #2e2a22;
+  --input: #2e2a22;
+  --ring: #c9a84c;
+  --muted: #231f18;
+  --muted-foreground: #8a8476;
+  --primary: #c9a84c;
+  --primary-foreground: #16140f;
+  --secondary: #2a2620;
+  --secondary-foreground: #ccc6b8;
+  --accent: #252118;
+  --accent-foreground: #ccc6b8;
+  --destructive: #e05252;
+  --sidebar: #1b1914;
+  --sidebar-foreground: #c0b9aa;
+  --sidebar-active: #2d2820;
+  --panel: #1f1c16;
+}
+
+/* ── Base styles ──────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -59,134 +81,177 @@ html {
 
 body {
   font-family: theme('fontFamily.sans');
-  background-color: var(--color-ink);
-  color: var(--color-snow);
+  background-color: var(--background);
+  color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  line-height: 1.6;
+  line-height: 1.5;
+}
+
+/* ── Focus Ring (Global) ──────────────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-ink-5); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-parliament-500); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
 
-/* ── Status dot pulse ──────────────────────────────────────────────────────── */
-@keyframes pulse-dot {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-  50%      { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
-}
+.dark ::-webkit-scrollbar-thumb { background: var(--border); }
+.dark ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
 
 /* ── Reusable component classes ─────────────────────────────────────────────── */
 
 @layer components {
-  /* Card: elevated surface with subtle gold border on hover */
+  /* Card: elevated surface with subtle border */
   .card {
-    background-color: var(--color-ink-2);
-    border: 1px solid var(--color-ink-4);
+    background-color: var(--card);
+    border: 1px solid var(--border);
     border-radius: 12px;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .card:hover {
-    border-color: var(--color-ink-5);
-    box-shadow: 0 0 0 1px var(--color-ink-4), 0 4px 20px rgba(0,0,0,0.3);
+    border-color: var(--ring);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
   /* Button — Primary (gold fill) */
   .btn-primary {
-    background-color: var(--color-parliament-400);
-    color: var(--color-ink);
-    font-weight: 600;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 500;
     padding: 0.5rem 1.25rem;
     border-radius: 8px;
     border: none;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
     transition: background-color 0.15s ease, transform 0.1s ease;
   }
-  .btn-primary:hover  { background-color: var(--color-parliament-300); }
-  .btn-primary:active { background-color: var(--color-parliament-500); transform: scale(0.98); }
+  .btn-primary:hover  { background-color: color-mix(in srgb, var(--primary) 90%, black); }
+  .btn-primary:active { transform: scale(0.98); }
 
-  /* Button — Secondary (ghost with gold border) */
+  /* Button — Secondary (ghost with border) */
   .btn-secondary {
     background-color: transparent;
-    color: var(--color-parliament-400);
+    color: var(--primary);
     font-weight: 500;
     padding: 0.5rem 1.25rem;
     border-radius: 8px;
-    border: 1px solid var(--color-parliament-500);
+    border: 1px solid var(--border);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
     transition: background-color 0.15s ease, border-color 0.15s ease;
   }
   .btn-secondary:hover {
-    background-color: rgba(245, 183, 49, 0.08);
-    border-color: var(--color-parliament-400);
+    background-color: var(--accent);
+    border-color: var(--ring);
   }
 
   /* Button — Ghost (no border, subtle hover) */
   .btn-ghost {
     background-color: transparent;
-    color: var(--color-snow-muted);
+    color: var(--muted-foreground);
     font-weight: 500;
     padding: 0.5rem 1rem;
     border-radius: 8px;
     border: none;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
     transition: background-color 0.15s ease, color 0.15s ease;
   }
   .btn-ghost:hover {
-    background-color: var(--color-ink-3);
-    color: var(--color-snow);
+    background-color: var(--accent);
+    color: var(--foreground);
   }
 
   /* Input */
   .input {
-    background-color: var(--color-ink-2);
-    color: var(--color-snow);
-    border: 0.5px solid var(--color-ink-5);
+    background-color: var(--card);
+    color: var(--foreground);
+    border: 0.5px solid var(--input);
     border-radius: 8px;
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0.875rem;
     font-size: 0.875rem;
     width: 100%;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
     outline: none;
   }
-  .input::placeholder { color: var(--color-snow-faint); }
+  .input::placeholder { color: var(--muted-foreground); }
   .input:focus {
-    border-color: var(--color-parliament-500);
-    box-shadow: 0 0 0 3px rgba(245, 183, 49, 0.15);
+    border-color: var(--ring);
+    box-shadow: 0 0 0 2px rgba(176, 149, 72, 0.15);
   }
 
   /* Badge */
   .badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.2rem 0.6rem;
+    padding: 0.125rem 0.5rem;
     border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 500;
   }
-  .badge-gold    { background-color: rgba(245, 183, 49, 0.15); color: var(--color-parliament-300); }
-  .badge-green   { background-color: rgba(34, 197, 94, 0.15);  color: #4ade80; }
-  .badge-red     { background-color: rgba(239, 68, 68, 0.15);  color: #f87171; }
-  .badge-neutral { background-color: var(--color-ink-3);        color: var(--color-snow-muted); }
+  .badge-gold    { background-color: rgba(176, 149, 72, 0.12); color: var(--primary); border: 1px solid rgba(176, 149, 72, 0.2); }
+  .badge-green   { background-color: rgba(34, 197, 94, 0.12);  color: #15803d; border: 1px solid rgba(34, 197, 94, 0.2); }
+  .badge-red     { background-color: rgba(239, 68, 68, 0.12);  color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.2); }
+  .badge-neutral { background-color: var(--muted);             color: var(--muted-foreground); border: 1px solid var(--border); }
+
+  .dark .badge-green { color: #4ade80; }
+  .dark .badge-red   { color: #f87171; }
 
   /* Code block */
   .code-block {
     font-family: theme('fontFamily.mono');
-    background-color: var(--color-ink-3);
-    border: 1px solid var(--color-ink-4);
+    background-color: var(--muted);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 1rem 1.25rem;
     font-size: 0.85rem;
-    color: var(--color-parliament-300);
+    color: var(--foreground);
     overflow-x: auto;
   }
 
   /* Divider */
   .divider {
     border: none;
-    border-top: 1px solid var(--color-ink-4);
+    border-top: 1px solid var(--border);
     margin: 1.5rem 0;
   }
 }
+
+/* ── Animation keyframes ───────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in       { animation: fade-in 0.3s ease-out both; }
+.animate-slide-up      { animation: slide-up 0.25s ease-out both; }
+.animate-slide-in-left { animation: slide-in-left 0.25s ease-out both; }
