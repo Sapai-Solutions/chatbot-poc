@@ -11,36 +11,51 @@ export default {
         mono: ['"JetBrains Mono"', '"Fira Code"', 'ui-monospace', 'monospace'],
       },
       colors: {
-        parliament: {
-          50:  '#FFFBF0',
-          100: '#FFF3D6',
-          200: '#FFE4A8',
-          300: '#FFD070',
-          400: '#F5B731',
-          500: '#D4A020',
-          600: '#B8891A',
-          700: '#9A7215',
-          800: '#7D5C11',
-          900: '#5E450D',
-          950: '#3D2B08',
+        /* Semantic tokens mapped to CSS variables */
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+        card: {
+          DEFAULT: 'var(--card)',
+          foreground: 'var(--card-foreground)',
         },
-        ink: {
-          DEFAULT: '#0A0A0A',
-          1: '#141414',
-          2: '#1E1E1E',
-          3: '#282828',
-          4: '#333333',
-          5: '#444444',
+        border: 'var(--border)',
+        input: 'var(--input)',
+        ring: 'var(--ring)',
+        muted: {
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
         },
-        snow: {
-          DEFAULT: '#F5F5F5',
-          muted:   '#9A9A9A',
-          faint:   '#555555',
+        primary: {
+          DEFAULT: 'var(--primary)',
+          foreground: 'var(--primary-foreground)',
         },
-        success: '#22C55E',
-        warning: '#F59E0B',
-        error:   '#EF4444',
-        info:    '#3B82F6',
+        secondary: {
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)',
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          foreground: 'var(--accent-foreground)',
+        },
+        destructive: {
+          DEFAULT: 'var(--destructive)',
+        },
+        sidebar: {
+          DEFAULT: 'var(--sidebar)',
+          foreground: 'var(--sidebar-foreground)',
+          active: 'var(--sidebar-active)',
+        },
+        panel: 'var(--panel)',
+
+        /* Data visualization colors */
+        viz: {
+          order: 'var(--color-viz-order)',
+          review: 'var(--color-viz-review)',
+          transaction: 'var(--color-viz-transaction)',
+          customer: 'var(--color-viz-customer)',
+          item: 'var(--color-viz-item)',
+          chart: 'var(--color-viz-chart-primary)',
+        },
       },
       animation: {
         'fade-in':       'fade-in 0.3s ease-out both',
