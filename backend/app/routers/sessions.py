@@ -12,10 +12,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import ChatMessage, ChatSession
 from app.schemas import ChatSessionCreate, ChatSessionDetail, ChatSessionResponse
+from app.services.session_summarizer import generate_session_title_and_summary
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -114,11 +116,11 @@ async def get_session(
     Raises:
         404: If session not found.
     """
-    # Get session with messages
+    # Get session with eagerly loaded messages (lazy load is forbidden in async)
     stmt = (
         select(ChatSession)
         .where(ChatSession.id == session_id)
-        .outerjoin(ChatMessage)
+        .options(selectinload(ChatSession.messages))
     )
 
     result = await db.execute(stmt)
@@ -167,6 +169,96 @@ async def get_session(
             "updated_at": session.updated_at,
             "message_count": message_count,
             "messages": messages,
+        }
+    )
+
+
+@router.post("/{session_id}/summarize", response_model=ChatSessionResponse)
+async def summarize_session(
+    session_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Generate (or re-generate) title and summary for a session.
+
+    Called by the frontend when the user clicks "New Chat" to ensure the
+    current session has a meaningful label before it leaves the view.
+
+    Args:
+        session_id: The unique session ID
+
+    Returns:
+        Updated session with refreshed title and summary.
+
+    Raises:
+        404: If session not found.
+    """
+    stmt = select(ChatSession).where(ChatSession.id == session_id)
+    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session '{session_id}' not found",
+        )
+
+    # Fetch all messages for the session
+    msg_stmt = (
+        select(ChatMessage)
+        .where(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at)
+    )
+    msg_result = await db.execute(msg_stmt)
+    messages = msg_result.scalars().all()
+
+    if not messages:
+        # Nothing to summarize yet — return the session as-is without error
+        count_stmt = select(func.count(ChatMessage.id)).where(
+            ChatMessage.session_id == session_id
+        )
+        count_result = await db.execute(count_stmt)
+        message_count = count_result.scalar() or 0
+        return ChatSessionResponse.model_validate(
+            {
+                "id": session.id,
+                "title": session.title,
+                "summary": session.summary,
+                "created_at": session.created_at,
+                "updated_at": session.updated_at,
+                "message_count": message_count,
+            }
+        )
+
+    msg_dicts = [{"role": m.role, "content": m.content} for m in messages]
+
+    try:
+        title, summary = await generate_session_title_and_summary(msg_dicts)
+        session.title = title or session.title
+        session.summary = summary or session.summary
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Summarization failed: {exc}",
+        )
+
+    await db.flush()
+    await db.refresh(session)
+
+    # Get message count for response
+    count_stmt = select(func.count(ChatMessage.id)).where(
+        ChatMessage.session_id == session_id
+    )
+    count_result = await db.execute(count_stmt)
+    message_count = count_result.scalar() or 0
+
+    return ChatSessionResponse.model_validate(
+        {
+            "id": session.id,
+            "title": session.title,
+            "summary": session.summary,
+            "created_at": session.created_at,
+            "updated_at": session.updated_at,
+            "message_count": message_count,
         }
     )
 

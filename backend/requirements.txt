@@ -29,6 +29,10 @@ email-validator==2.2.*
 # ── Utilities ─────────────────────────────────────────────────────────────────
 python-dotenv==1.0.*
 
+# ── Document processing (Knowledge Base upload) ──────────────────────────────
+fpdf2==2.8.*           # Convert text/non-PDF files to PDF for ingestion
+python-docx==1.1.*     # Extract text from .docx files
+
 # ── AI / LangChain ─────────────────────────────────────────────────────────────
 langgraph==0.3.*
 langchain==0.3.*

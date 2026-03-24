@@ -8,22 +8,35 @@ import { motion } from 'motion/react'
 import { Database, MessageSquare } from 'lucide-react'
 
 import KnowledgeBaseTab from '../components/chat/KnowledgeBaseTab'
-import { getKnowledgeBaseDocuments, uploadDocument, deleteDocument } from '../api'
+import {
+  getKnowledgeBaseCollections,
+  getCollectionDocuments,
+  uploadDocumentToCollection,
+  replaceDocumentInCollection,
+  deleteDocumentsFromCollection,
+  getIngestionTaskStatus,
+} from '../api'
 
 export default function KnowledgeBase() {
-  const [documents, setDocuments] = useState([])
+  const [collections, setCollections] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  const [selectedCollection, setSelectedCollection] = useState(null)
+  const [documents, setDocuments] = useState([])
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [docsError, setDocsError] = useState(null)
+  const [taskStatus, setTaskStatus] = useState(null) // { taskId, status, message }
+
   useEffect(() => {
-    loadDocuments()
+    loadCollections()
   }, [])
 
-  const loadDocuments = async () => {
+  const loadCollections = async () => {
     setIsLoading(true)
     try {
-      const docs = await getKnowledgeBaseDocuments()
-      setDocuments(docs || [])
+      const data = await getKnowledgeBaseCollections()
+      setCollections(data?.collections || [])
     } catch (err) {
       setError(err.message)
     } finally {
@@ -31,14 +44,65 @@ export default function KnowledgeBase() {
     }
   }
 
-  const handleUpload = async (file) => {
-    await uploadDocument(file)
-    await loadDocuments()
+  const handleSelectCollection = async (collection) => {
+    setSelectedCollection(collection)
+    setDocuments([])
+    setDocsError(null)
+    setDocsLoading(true)
+    try {
+      const data = await getCollectionDocuments(collection.collection_name)
+      setDocuments(data?.documents || [])
+    } catch (err) {
+      setDocsError(err.message)
+    } finally {
+      setDocsLoading(false)
+    }
   }
 
-  const handleDelete = async (documentId) => {
-    await deleteDocument(documentId)
-    await loadDocuments()
+  const refreshDocuments = async (collectionName) => {
+    const data = await getCollectionDocuments(collectionName)
+    setDocuments(data?.documents || [])
+  }
+
+  const pollTaskStatus = (collectionName, taskId) => {
+    setTaskStatus({ taskId, status: 'processing', message: 'Ingesting document…' })
+    const interval = setInterval(async () => {
+      try {
+        const data = await getIngestionTaskStatus(collectionName, taskId)
+        const state = (data?.status || data?.state || '').toLowerCase()
+        if (state === 'completed' || state === 'finished') {
+          clearInterval(interval)
+          setTaskStatus({ taskId, status: 'completed', message: 'Ingestion complete.' })
+          await refreshDocuments(collectionName)
+          setTimeout(() => setTaskStatus(null), 3000)
+        } else if (state === 'failed' || state === 'error') {
+          clearInterval(interval)
+          setTaskStatus({ taskId, status: 'error', message: data?.message || 'Ingestion failed.' })
+        }
+      } catch {
+        // transient poll error — keep retrying
+      }
+    }, 3000)
+  }
+
+  const handleBack = () => {
+    setSelectedCollection(null)
+    setDocuments([])
+    setDocsError(null)
+    setTaskStatus(null)
+  }
+
+  const handleUpload = async (file, metadata, replace = false) => {
+    const fn = replace ? replaceDocumentInCollection : uploadDocumentToCollection
+    const result = await fn(selectedCollection.collection_name, file, metadata)
+    if (result?.task_id) {
+      pollTaskStatus(selectedCollection.collection_name, result.task_id)
+    }
+  }
+
+  const handleDelete = async (documentNames) => {
+    await deleteDocumentsFromCollection(selectedCollection.collection_name, documentNames)
+    await refreshDocuments(selectedCollection.collection_name)
   }
 
   return (
@@ -53,7 +117,7 @@ export default function KnowledgeBase() {
             <div>
               <h1 className="font-semibold text-foreground text-base">Knowledge Base</h1>
               <p className="text-sm text-muted-foreground">
-                Manage your documents
+                Browse Milvus collections
               </p>
             </div>
           </div>
@@ -78,10 +142,17 @@ export default function KnowledgeBase() {
           className="h-[calc(100vh-140px)] bg-card border border-border rounded-xl shadow-sm overflow-hidden"
         >
           <KnowledgeBaseTab
+            collections={collections}
+            isLoading={isLoading}
+            selectedCollection={selectedCollection}
             documents={documents}
+            docsLoading={docsLoading}
+            docsError={docsError}
+            taskStatus={taskStatus}
+            onSelectCollection={handleSelectCollection}
+            onBack={handleBack}
             onUpload={handleUpload}
             onDelete={handleDelete}
-            isLoading={isLoading}
           />
         </motion.div>
       </main>

@@ -17,7 +17,7 @@ import remarkGfm from 'remark-gfm'
 import { Send, Bot, User, RefreshCw, Trash2, Clock, Database, Sparkles, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { streamChatMessage, clearChatHistory, getSessions, deleteSession } from '../api'
+import { streamChatMessage, clearChatHistory, getSessions, getSession, deleteSession, summarizeSession } from '../api'
 import SessionSidebar from '../components/chat/SessionSidebar'
 
 const WELCOME_MESSAGE = {
@@ -38,6 +38,7 @@ export default function Chat() {
   const [sessions, setSessions] = useState([])
   const [toolSidebarOpen, setToolSidebarOpen] = useState(true)
   const [expandedToolCalls, setExpandedToolCalls] = useState({})
+  const [summarizingIds, setSummarizingIds] = useState(new Set())
 
   const toggleToolCall = (idx) =>
     setExpandedToolCalls((prev) => ({ ...prev, [idx]: !prev[idx] }))
@@ -59,6 +60,26 @@ export default function Chat() {
   }
 
   const handleNewChat = () => {
+    // Fire-and-forget: summarize the current session in the background
+    const hasRealMessages = messages.some((m) => m !== WELCOME_MESSAGE)
+    if (sessionId && hasRealMessages) {
+      const idToSummarize = sessionId
+      setSummarizingIds((prev) => new Set(prev).add(idToSummarize))
+
+      summarizeSession(idToSummarize)
+        .then(() => loadSessions())
+        .catch((err) => console.warn('Background summarize failed:', err))
+        .finally(() => {
+          setSummarizingIds((prev) => {
+            const next = new Set(prev)
+            next.delete(idToSummarize)
+            return next
+          })
+          loadSessions()
+        })
+    }
+
+    // Immediately reset to new chat — no waiting
     setMessages([WELCOME_MESSAGE])
     setSessionId(null)
     setToolCalls([])
@@ -69,10 +90,30 @@ export default function Chat() {
   }
 
   const handleSelectSession = async (id) => {
-    // For now, just switch to that session ID
-    // In a full implementation, you'd fetch the session messages
-    setSessionId(id)
-    setMessages([WELCOME_MESSAGE])
+    if (id === sessionId) return
+    setIsLoading(true)
+    try {
+      const sessionData = await getSession(id)
+      setSessionId(id)
+      setToolCalls([])
+      setStreamingContent('')
+      setActiveTools([])
+
+      if (sessionData.messages && sessionData.messages.length > 0) {
+        const mapped = sessionData.messages.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+          tool_calls: msg.tool_calls,
+        }))
+        setMessages([WELCOME_MESSAGE, ...mapped])
+      } else {
+        setMessages([WELCOME_MESSAGE])
+      }
+    } catch (err) {
+      console.error('Failed to load session:', err)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleDeleteSession = async (id) => {
@@ -346,6 +387,7 @@ export default function Chat() {
           onDeleteSession={handleDeleteSession}
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
+          summarizingIds={summarizingIds}
         />
 
         {/* Chat Area */}

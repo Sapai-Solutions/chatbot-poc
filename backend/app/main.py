@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import chat, health, sessions
+from app.routers import chat, health, knowledge_base, sessions
 
 settings = get_settings()
 
@@ -59,6 +59,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(chat.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
+app.include_router(knowledge_base.router, prefix="/api")
 
 # Add your routers here, e.g.:
 # from app.routers import users, items

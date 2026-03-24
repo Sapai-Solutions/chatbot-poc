@@ -170,6 +170,8 @@ export async function streamChatMessage(message, sessionId = null, callbacks = {
 
 export const getSessions = () => fetchApi('/api/sessions')
 
+export const getSession = (sessionId) => fetchApi(`/api/sessions/${sessionId}`)
+
 export const deleteSession = (sessionId) =>
   fetchApi(`/api/sessions/${sessionId}`, { method: 'DELETE' })
 
@@ -179,26 +181,59 @@ export const renameSession = (sessionId, title) =>
     body: JSON.stringify({ title }),
   })
 
+export const summarizeSession = (sessionId) =>
+  fetchApi(`/api/sessions/${sessionId}/summarize`, { method: 'POST' })
+
 // ── Knowledge Base ─────────────────────────────────────────────────────────────
 
-export const getKnowledgeBaseDocuments = () => fetchApi('/api/knowledge-base')
+export const getKnowledgeBaseCollections = () => fetchApi('/api/knowledge-base/collections')
 
-export const uploadDocument = (file) => {
+export const getCollectionDocuments = (collectionName) =>
+  fetchApi(`/api/knowledge-base/collections/${encodeURIComponent(collectionName)}/documents`)
+
+export const uploadDocumentToCollection = (collectionName, file, metadata = {}) => {
   const formData = new FormData()
   formData.append('file', file)
-  return fetch(`${API_BASE}/api/knowledge-base/upload`, {
+  if (metadata.author) formData.append('author', metadata.author)
+  if (metadata.category) formData.append('category', metadata.category)
+
+  return fetch(`${API_BASE}/api/knowledge-base/collections/${encodeURIComponent(collectionName)}/documents`, {
     method: 'POST',
     credentials: 'include',
     body: formData,
-  }).then((response) => {
-    if (!response.ok) {
-      return response.json().then((error) => {
-        throw new Error(error.detail || `HTTP ${response.status}`)
-      })
+  }).then((res) => {
+    if (!res.ok) {
+      return res.json().then((err) => { throw new Error(err.detail || `HTTP ${res.status}`) })
     }
-    return response.json()
+    return res.json()
   })
 }
 
-export const deleteDocument = (documentId) =>
-  fetchApi(`/api/knowledge-base/${documentId}`, { method: 'DELETE' })
+export const replaceDocumentInCollection = (collectionName, file, metadata = {}) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (metadata.author) formData.append('author', metadata.author)
+  if (metadata.category) formData.append('category', metadata.category)
+
+  return fetch(`${API_BASE}/api/knowledge-base/collections/${encodeURIComponent(collectionName)}/documents`, {
+    method: 'PATCH',
+    credentials: 'include',
+    body: formData,
+  }).then((res) => {
+    if (!res.ok) {
+      return res.json().then((err) => { throw new Error(err.detail || `HTTP ${res.status}`) })
+    }
+    return res.json()
+  })
+}
+
+export const deleteDocumentsFromCollection = (collectionName, documentNames) =>
+  fetchApi(`/api/knowledge-base/collections/${encodeURIComponent(collectionName)}/documents`, {
+    method: 'DELETE',
+    body: JSON.stringify({ document_names: documentNames }),
+  })
+
+export const getIngestionTaskStatus = (collectionName, taskId) =>
+  fetchApi(
+    `/api/knowledge-base/collections/${encodeURIComponent(collectionName)}/documents/status?task_id=${encodeURIComponent(taskId)}`,
+  )

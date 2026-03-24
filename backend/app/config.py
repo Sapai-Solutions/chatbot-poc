@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # RAG/Knowledge Base endpoint - configure for your ingestion service
     KNOWLEDGE_BASE_URL: str = "http://100.71.19.113:8081"
     KNOWLEDGE_BASE_API_KEY: str = ""
+    # Ingestion / collection management server
+    INGESTION_SERVER_URL: str = "http://100.71.19.113:8082"
 
     # Knowledge Base search parameters
     KB_VDB_ENDPOINT: str = "http://milvus:19530"

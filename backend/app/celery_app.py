@@ -30,6 +30,7 @@ celery_app = Celery(
         # Register task modules here, e.g.:
         # "app.tasks.emails",
         # "app.tasks.reports",
+        "app.tasks.summarizer",
     ],
 )
 
@@ -49,12 +50,12 @@ celery_app.conf.update(
 )
 
 # ── Periodic task schedule (Celery Beat) ──────────────────────────────────────
-# Uncomment and modify to add scheduled tasks.
-# from celery.schedules import crontab
-#
-# celery_app.conf.beat_schedule = {
-#     "example-every-hour": {
-#         "task": "app.tasks.example.run",
-#         "schedule": crontab(minute="0"),
-#     },
-# }
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+    # Backfill titles/summaries for sessions that never got one (e.g. tab closed)
+    "summarize-untitled-sessions-hourly": {
+        "task": "app.tasks.summarizer.backfill_session_summaries",
+        "schedule": crontab(minute="0"),  # Top of every hour
+    },
+}
