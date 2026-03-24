@@ -19,8 +19,19 @@ class Settings(BaseSettings):
 
     # ── External Services ─────────────────────────────────────────────────────
     # RAG/Knowledge Base endpoint - configure for your ingestion service
-    KNOWLEDGE_BASE_URL: str = ""
+    KNOWLEDGE_BASE_URL: str = "http://100.71.19.113:8081"
     KNOWLEDGE_BASE_API_KEY: str = ""
+
+    # Knowledge Base search parameters
+    KB_VDB_ENDPOINT: str = "http://milvus:19530"
+    KB_COLLECTION_NAMES: str = "dr_speakers"  # comma-separated list
+    KB_EMBEDDING_MODEL: str = "nvidia/llama-3.2-nv-embedqa-1b-v2"
+    KB_EMBEDDING_ENDPOINT: str = "nemoretriever-embedding-ms:8000"
+    KB_RERANKER_MODEL: str = "nvidia/llama-3.2-nv-rerankqa-1b-v2"
+    KB_RERANKER_ENDPOINT: str = "nemoretriever-ranking-ms:8000"
+    KB_RERANKER_TOP_K: int = 10
+    KB_VDB_TOP_K: int = 100
+    KB_ENABLE_RERANKER: bool = True
 
     # ── Database ──────────────────────────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://kpdn:changeme@db:5432/kpdn_db"
