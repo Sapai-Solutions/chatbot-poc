@@ -14,9 +14,11 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Send, Bot, User, RefreshCw, Trash2, Clock, Database, Sparkles } from 'lucide-react'
+import { Send, Bot, User, RefreshCw, Trash2, Clock, Database, Sparkles, BookOpen } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
-import { streamChatMessage, clearChatHistory } from '../api'
+import { streamChatMessage, clearChatHistory, getSessions, deleteSession } from '../api'
+import SessionSidebar from '../components/chat/SessionSidebar'
 
 const WELCOME_MESSAGE = {
   role: 'assistant',
@@ -32,8 +34,53 @@ export default function Chat() {
   const [toolCalls, setToolCalls] = useState([])
   const [streamingContent, setStreamingContent] = useState('')
   const [activeTools, setActiveTools] = useState([])
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sessions, setSessions] = useState([])
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+
+  // Load sessions on mount
+  useEffect(() => {
+    loadSessions()
+  }, [])
+
+  const loadSessions = async () => {
+    try {
+      const data = await getSessions()
+      setSessions(data || [])
+    } catch (err) {
+      console.error('Failed to load sessions:', err)
+    }
+  }
+
+  const handleNewChat = () => {
+    setMessages([WELCOME_MESSAGE])
+    setSessionId(null)
+    setToolCalls([])
+    setStreamingContent('')
+    setIsStreaming(false)
+    setIsLoading(false)
+    setActiveTools([])
+  }
+
+  const handleSelectSession = async (id) => {
+    // For now, just switch to that session ID
+    // In a full implementation, you'd fetch the session messages
+    setSessionId(id)
+    setMessages([WELCOME_MESSAGE])
+  }
+
+  const handleDeleteSession = async (id) => {
+    try {
+      await deleteSession(id)
+      await loadSessions()
+      if (id === sessionId) {
+        handleNewChat()
+      }
+    } catch (err) {
+      console.error('Failed to delete session:', err)
+    }
+  }
 
   // Auto-scroll to bottom on new messages or streaming content
   useEffect(() => {
@@ -95,6 +142,8 @@ export default function Chat() {
 
           if (finalSessionId && !sessionId) {
             setSessionId(finalSessionId)
+            // Refresh sessions list to show the new session
+            loadSessions()
           }
 
           // Merge tool calls from final response with real-time results
@@ -201,7 +250,7 @@ export default function Chat() {
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-primary" />
+              <img src="/logo.png" alt="Aras Integrasi" className="w-6 h-6" />
             </div>
             <div>
               <h1 className="font-semibold text-foreground text-base">AI Assistant</h1>
@@ -212,6 +261,15 @@ export default function Chat() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Knowledge Base Link */}
+            <Link
+              to="/knowledge-base"
+              className="btn-secondary text-sm px-3 py-2 flex items-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              Knowledge Base
+            </Link>
+
             {/* Tool Call Indicator */}
             <AnimatePresence>
               {(toolCalls.length > 0 || activeTools.length > 0) && (
@@ -244,9 +302,20 @@ export default function Chat() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex max-w-4xl mx-auto w-full">
+      <main className="flex-1 flex w-full">
+        {/* Session Sidebar */}
+        <SessionSidebar
+          sessions={sessions}
+          currentSessionId={sessionId}
+          onSelectSession={handleSelectSession}
+          onNewChat={handleNewChat}
+          onDeleteSession={handleDeleteSession}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+        />
+
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             <AnimatePresence mode="popLayout">
@@ -271,7 +340,7 @@ export default function Chat() {
                     {message.role === 'user' ? (
                       <User className="w-4 h-4 text-primary-foreground" />
                     ) : (
-                      <Bot className="w-4 h-4 text-primary" />
+                      <img src="/logo.png" alt="AI" className="w-4 h-4" />
                     )}
                   </div>
 
@@ -312,7 +381,7 @@ export default function Chat() {
                 className="flex gap-4"
               >
                 <div className="w-8 h-8 rounded-xl bg-secondary border border-border flex items-center justify-center">
-                  <Bot className="w-4 h-4 text-primary" />
+                  <img src="/logo.png" alt="AI" className="w-4 h-4" />
                 </div>
                 <div className="max-w-[80%] rounded-2xl rounded-bl-md px-5 py-4 bg-card border border-border shadow-sm">
                   <div className="prose prose-sm max-w-none">
@@ -337,7 +406,7 @@ export default function Chat() {
                 className="flex gap-4"
               >
                 <div className="w-8 h-8 rounded-xl bg-secondary border border-border flex items-center justify-center">
-                  <Bot className="w-4 h-4 text-primary" />
+                  <img src="/logo.png" alt="AI" className="w-4 h-4" />
                 </div>
                 <div className="bg-card border border-border rounded-2xl rounded-bl-md px-5 py-4 flex items-center gap-2 shadow-sm">
                   <motion.div
