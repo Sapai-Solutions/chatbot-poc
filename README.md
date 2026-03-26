@@ -19,6 +19,7 @@ This template provides everything you need to build and deploy an AI-powered cha
 | *Session Management* | Persistent conversation history per session |
 | *Tool System* | Easy-to-extend tool calling framework |
 | *Knowledge Base* | RAG integration ready — connect your own knowledge base |
+| *Widget System* | Tools can spawn interactive inline widgets inside the chat |
 | *Modern UI* | React frontend with markdown support and tool visualization |
 
 ---
@@ -138,6 +139,152 @@ That's it! The agent will now automatically call your tool when relevant.
 
 ---
 
+## Adding Custom Widgets
+
+Widgets are interactive React components that are rendered **inline inside a chat message** when a specific tool call completes. They appear below the assistant's markdown response and can have collapsible sections or interactive state.
+
+The system has three layers:
+
+```
+Tool (backend) → widget SSE event → api.js → Chat.jsx → Widget registry → Your component
+```
+
+### How it works
+
+1. A tool returns a JSON string with a `"context"` key. `agent_streaming.py` detects this envelope and emits a `widget` SSE event containing a `type` string and any structured data, **in addition to** the normal `tool_result` event (which forwards the `context` text to the LLM unchanged).
+2. The frontend `streamChatMessage` function in `api.js` fires `onWidget(data)` for each widget event received.
+3. `Chat.jsx` collects widget payloads during streaming and attaches them to the final assistant message.
+4. The message renderer passes each widget to `<Widget data={...} />`, which looks up the right component in the registry.
+
+---
+
+### Step 1 — Return structured data from the tool
+
+In `backend/app/services/agent.py`, return a JSON string with a `context` field (the LLM-readable text) plus any extra fields for the widget:
+
+```python
+import json
+from langchain_core.tools import tool
+
+@tool
+def lookup_product(sku: str) -> str:
+    """Look up a product by SKU and return pricing and stock info."""
+    product = db.get_product(sku)
+    if not product:
+        return f"No product found for SKU: {sku}"
+
+    # Plain text for the LLM
+    context = f"Product: {product.name}\nPrice: ${product.price}\nStock: {product.stock} units"
+
+    # Return structured envelope — context goes to the LLM, the rest
+    # is forwarded to the frontend as a widget event.
+    return json.dumps({
+        "context": context,
+        "sku": sku,
+        "name": product.name,
+        "price": product.price,
+        "stock": product.stock,
+        "image_url": product.image_url,
+    })
+```
+
+Register the tool in `create_agent()` as with any other tool:
+
+```python
+tools = [get_current_time, query_knowledge_base, lookup_product]
+```
+
+---
+
+### Step 2 — Emit the widget SSE event
+
+In `backend/app/services/agent_streaming.py`, inside the `on_tool_end` handler, add a branch for your tool after the existing `query_knowledge_base` branch:
+
+```python
+# existing branch
+if tool_name == "query_knowledge_base" and "sources" in result_data:
+    yield (
+        f"event: widget\n"
+        f"data: {json.dumps({'type': 'knowledge_base_results', ...})}\n\n"
+    )
+
+# your new branch
+elif tool_name == "lookup_product" and "sku" in result_data:
+    yield (
+        f"event: widget\n"
+        f"data: {json.dumps({'type': 'product_card', 'sku': result_data['sku'], 'name': result_data['name'], 'price': result_data['price'], 'stock': result_data['stock'], 'image_url': result_data.get('image_url', '')})}\n\n"
+    )
+```
+
+The `type` string is the shared key that links the SSE event to the React component.
+
+---
+
+### Step 3 — Build the React component
+
+Create `frontend/src/components/chat/widgets/ProductCardWidget.jsx`:
+
+```jsx
+import { motion } from 'motion/react'
+import { ShoppingBag } from 'lucide-react'
+
+export default function ProductCardWidget({ data }) {
+  const { name, price, stock, image_url, sku } = data
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
+      className="mt-3 pt-3 border-t border-border"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-5 h-5 rounded-md bg-primary/10 flex items-center justify-center">
+          <ShoppingBag className="w-3 h-3 text-primary" />
+        </div>
+        <span className="text-xs font-semibold text-foreground">Product</span>
+      </div>
+
+      <div className="rounded-xl border border-border bg-background p-3 flex gap-3">
+        {image_url && (
+          <img src={image_url} alt={name} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+        )}
+        <div>
+          <p className="text-sm font-semibold text-foreground">{name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">SKU: {sku}</p>
+          <div className="flex gap-3 mt-2">
+            <span className="text-xs font-semibold text-primary">${price}</span>
+            <span className="text-xs text-muted-foreground">{stock} in stock</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+```
+
+Follow the design system rules (CSS variables, `motion` for animation, no hardcoded colours).
+
+---
+
+### Step 4 — Register the component
+
+Add one line to `frontend/src/components/chat/widgets/Widget.jsx`:
+
+```jsx
+import KnowledgeBaseWidget from './KnowledgeBaseWidget'
+import ProductCardWidget from './ProductCardWidget'   // ← add
+
+const WIDGET_REGISTRY = {
+  knowledge_base_results: KnowledgeBaseWidget,
+  product_card: ProductCardWidget,                   // ← add
+}
+```
+
+That's it. The next time `lookup_product` is called the widget will appear inline automatically.
+
+---
+
 ## Connecting a Knowledge Base
 
 Configure RAG (Retrieval-Augmented Generation) by setting these environment variables:
@@ -203,6 +350,11 @@ chatbot-poc/
 │   │   ├── pages/
 │   │   │   ├── Chat.jsx              # Main chat interface
 │   │   │   └── Home.jsx              # Landing page
+│   │   ├── components/
+│   │   │   └── chat/
+│   │   │       └── widgets/
+│   │   │           ├── Widget.jsx             # Registry — maps type → component
+│   │   │           └── KnowledgeBaseWidget.jsx # Built-in KB results widget
 │   │   ├── api.js                    # API client (includes streaming)
 │   │   └── ...
 │   ├── package.json

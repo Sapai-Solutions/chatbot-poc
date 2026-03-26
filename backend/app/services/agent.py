@@ -1,7 +1,7 @@
 """LangGraph agent service for chatbot with tool calling capabilities.
 
 This service implements a ReAct agent pattern using LangGraph that can:
-- Answer questions about Aras/MTAI using a knowledge base
+- Answer questions using a configured knowledge base
 - Make tool calls (e.g., getting current time)
 - Maintain conversation context
 """
@@ -48,7 +48,7 @@ def get_current_time() -> str:
 def query_knowledge_base(query: str) -> str:
     """Query the knowledge base for information relevant to the user's question.
 
-    Searches parliamentary documents and speaker transcripts using semantic search.
+    Searches the knowledge base using semantic search to find the most relevant documents.
 
     Args:
         query: The search query
@@ -107,37 +107,65 @@ def query_knowledge_base(query: str) -> str:
             if not results:
                 return f"No results found in the knowledge base for query: '{query}'"
 
-            # Format results into a readable context string
+            # Format results into a readable context string AND collect structured sources
             formatted_parts = []
+            sources = []
             for i, result in enumerate(results, 1):
                 content = result.get("content", "").strip()
                 doc_name = result.get("document_name", "unknown")
                 score = result.get("score", 0)
 
-                # Extract useful metadata
+                # Extract generic metadata — these fields are optional and
+                # depend on what the knowledge base stores per document.
                 metadata = result.get("metadata", {})
                 content_meta = metadata.get("content_metadata", {})
-                speaker = content_meta.get("speaker_name", "")
-                session_date = content_meta.get("session_date", "")
-                dewan = content_meta.get("dewan", "")
-                alt_name = content_meta.get("alt_name", "")
+                author = content_meta.get("author", "")
+                date = content_meta.get("date", "")
+                category = content_meta.get("category", "")
 
                 part = f"[Result {i}] (score: {score:.3f})\n"
-                if speaker:
-                    speaker_display = alt_name if alt_name else speaker
-                    part += f"Speaker: {speaker_display}\n"
-                if session_date:
-                    part += f"Date: {session_date}"
-                if dewan:
-                    part += f" | {dewan.title()}"
+                if author:
+                    part += f"Author: {author}\n"
+                if date:
+                    part += f"Date: {date}"
+                if category:
+                    part += f" | {category}"
                 part += f"\nSource: {doc_name}\n"
                 part += f"Content: {content}"
 
                 formatted_parts.append(part)
+                sources.append({
+                    "rank": i,
+                    "content": content,
+                    "source": doc_name,
+                    "score": round(float(score), 3),
+                    "author": author,
+                    "date": date,
+                    "category": category,
+                })
 
             total = data.get("total_results", len(results))
             header = f"Found {total} results for '{query}':\n\n"
-            return header + "\n\n---\n\n".join(formatted_parts)
+            context_text = header + "\n\n---\n\n".join(formatted_parts)
+
+            # Return a structured JSON string understood by agent_streaming.py.
+            #
+            # The streaming layer inspects tool results for this envelope:
+            #   - "context"  → plain text forwarded to the LLM as its tool
+            #                   result (identical content to the old string
+            #                   return, so LLM behaviour is unchanged).
+            #   - "sources"  → structured list used to emit a "widget" SSE
+            #                   event so the frontend can render a rich
+            #                   KnowledgeBaseWidget inline in the chat.
+            #
+            # Shape of each source object:
+            #   {rank, content, source, score, author, date, category}
+            return json.dumps({
+                "context": context_text,
+                "query": query,
+                "total_results": total,
+                "sources": sources,
+            }, ensure_ascii=False)
 
     except httpx.HTTPStatusError as e:
         logger.error(f"Knowledge base query failed: {e}")

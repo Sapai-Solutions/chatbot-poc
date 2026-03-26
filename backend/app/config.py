@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Knowledge Base search parameters
     KB_VDB_ENDPOINT: str = "http://milvus:19530"
-    KB_COLLECTION_NAMES: str = "dr_speakers"  # comma-separated list
+    KB_COLLECTION_NAMES: str = "default"  # comma-separated list
     KB_EMBEDDING_MODEL: str = "nvidia/llama-3.2-nv-embedqa-1b-v2"
     KB_EMBEDDING_ENDPOINT: str = "nemoretriever-embedding-ms:8000"
     KB_RERANKER_MODEL: str = "nvidia/llama-3.2-nv-rerankqa-1b-v2"
@@ -36,8 +36,8 @@ class Settings(BaseSettings):
     KB_ENABLE_RERANKER: bool = True
 
     # ── Database ──────────────────────────────────────────────────────────────
-    DATABASE_URL: str = "postgresql+asyncpg://kpdn:changeme@db:5432/kpdn_db"
-    DATABASE_URL_SYNC: str = "postgresql://kpdn:changeme@db:5432/kpdn_db"
+    DATABASE_URL: str = "postgresql+asyncpg://chatbotpoc:changeme@db:5432/chatbotpoc_db"
+    DATABASE_URL_SYNC: str = "postgresql://chatbotpoc:changeme@db:5432/chatbotpoc_db"
 
     # ── Redis & Celery ────────────────────────────────────────────────────────
     REDIS_URL: str = "redis://redis:6379/0"
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM_NAME: str = "KPDN Tribunal Transcriber"
+    SMTP_FROM_NAME: str = "AI Assistant"
 
     # ── Cache ─────────────────────────────────────────────────────────────────
     CACHE_TTL: int = 300  # seconds

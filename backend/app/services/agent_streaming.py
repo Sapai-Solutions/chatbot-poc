@@ -3,6 +3,47 @@
 This module provides TRUE streaming by running the LangGraph agent graph
 with ``astream_events``, so every token from the LLM is yielded as it
 arrives via Server-Sent Events (SSE) — no blocking pre-check call.
+
+SSE event types
+---------------
+``message_start``
+    Fired once at the start of a response. Payload: ``{session_id}``.
+
+``token``
+    One LLM text token. Payload: ``{token}``.
+
+``tool_start``
+    A tool invocation has begun. Payload: ``{tools: [{name, args}]}``.
+
+``tool_result``
+    A tool completed. Payload: ``{tool, result}`` where *result* is
+    always a plain human-readable string (any JSON wrapper is unwrapped
+    before this event is emitted).
+
+``widget``
+    A tool produced structured data that the frontend should render as
+    an interactive inline widget. Emitted **before** ``tool_result``.
+    Payload: ``{type, ...widget-specific fields}``.
+
+    Built-in widget types
+    ~~~~~~~~~~~~~~~~~~~~
+    ``knowledge_base_results``
+        Emitted by ``query_knowledge_base``.  Extra fields:
+        ``query`` (str), ``total`` (int),
+        ``sources`` (list of ``{rank, content, source, score,
+        author, date, category}``).
+
+    To add a new widget type, have a tool return a JSON string that
+    contains a ``context`` key (used as the LLM-visible text) and any
+    additional fields.  Then add handling here to emit a ``widget``
+    event with an agreed ``type`` string, and register a matching
+    component in ``frontend/src/components/chat/widgets/Widget.jsx``.
+
+``message_end``
+    Final event. Payload: ``{full_message, session_id, tool_calls}``.
+
+``error``
+    Unrecoverable streaming error. Payload: ``{error}``.
 """
 
 import json
@@ -86,9 +127,26 @@ async def stream_chat_response(
                 output = event["data"].get("output", "")
                 # LangGraph returns ToolMessage objects here
                 result_str = output.content if hasattr(output, "content") else str(output)
+
+                # Check for structured widget data (tools that return JSON payloads)
+                display_result = result_str
+                try:
+                    result_data = json.loads(result_str)
+                    if isinstance(result_data, dict) and "context" in result_data:
+                        # Unwrap — give the LLM-readable text to the tool_result event
+                        display_result = result_data["context"]
+                        # Emit a widget event so the frontend can render a rich inline widget
+                        if tool_name == "query_knowledge_base" and "sources" in result_data:
+                            yield (
+                                f"event: widget\n"
+                                f"data: {json.dumps({'type': 'knowledge_base_results', 'query': result_data.get('query', ''), 'total': result_data.get('total_results', 0), 'sources': result_data['sources']})}\n\n"
+                            )
+                except (json.JSONDecodeError, TypeError, KeyError):
+                    pass
+
                 yield (
                     f"event: tool_result\n"
-                    f"data: {json.dumps({'tool': tool_name, 'result': result_str})}\n\n"
+                    f"data: {json.dumps({'tool': tool_name, 'result': display_result})}\n\n"
                 )
 
         # ── Stream complete ──────────────────────────────────────────────────

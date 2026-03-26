@@ -68,7 +68,7 @@ async def chat(
     """Send a message to the AI chatbot.
 
     The chatbot uses LangGraph with tool calling capabilities to:
-    - Answer questions about Aras/MTAI from the knowledge base
+    - Answer questions from the knowledge base
     - Execute tools like getting the current time
     - Maintain conversation context across messages
 

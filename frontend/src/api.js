@@ -78,6 +78,7 @@ export const clearChatHistory = (sessionId) =>
  *   - onToolResult(tool, result): Called when tool completes
  *   - onMessageStart(sessionId): Called when stream starts
  *   - onMessageEnd(fullMessage, sessionId, toolCalls): Called when complete
+ *   - onWidget(widgetData): Called when a tool emits an inline widget payload
  *   - onError(error): Called on error
  * @returns {Promise<void>}
  */
@@ -86,6 +87,7 @@ export async function streamChatMessage(message, sessionId = null, callbacks = {
     onToken = () => {},
     onToolStart = () => {},
     onToolResult = () => {},
+    onWidget = () => {},
     onMessageStart = () => {},
     onMessageEnd = () => {},
     onError = () => {},
@@ -147,6 +149,9 @@ export async function streamChatMessage(message, sessionId = null, callbacks = {
               break
             case 'tool_result':
               onToolResult(data.tool, data.result)
+              break
+            case 'widget':
+              onWidget(data)
               break
             case 'token':
               onToken(data.token)

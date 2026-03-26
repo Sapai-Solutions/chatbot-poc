@@ -19,10 +19,11 @@ import { Link } from 'react-router-dom'
 
 import { streamChatMessage, clearChatHistory, getSessions, getSession, deleteSession, summarizeSession } from '../api'
 import SessionSidebar from '../components/chat/SessionSidebar'
+import Widget from '../components/chat/widgets/Widget'
 
 const WELCOME_MESSAGE = {
   role: 'assistant',
-  content: "Hello! I'm your AI assistant powered by LangGraph. I can help you with:\n\n• Questions about Aras Integrasi and MTAI Labs\n• Current date and time\n• General knowledge and assistance\n\nWhat would you like to know?",
+  content: "Hello! I'm your AI assistant powered by LangGraph. I can help you with:\n\n• Questions answered from the knowledge base\n• Current date and time\n• General knowledge and assistance\n\nWhat would you like to know?",
 }
 
 export default function Chat() {
@@ -151,6 +152,7 @@ export default function Chat() {
 
     let currentSessionId = sessionId
     const receivedToolCalls = []
+    const receivedWidgets = []
 
     try {
       await streamChatMessage(userMessage, sessionId, {
@@ -173,6 +175,10 @@ export default function Chat() {
           })
         },
 
+        onWidget: (widgetData) => {
+          receivedWidgets.push(widgetData)
+        },
+
         onToken: (token) => {
           setActiveTools([])
           setStreamingContent((prev) => prev + token)
@@ -181,7 +187,11 @@ export default function Chat() {
         onMessageEnd: (fullMessage, finalSessionId, finalToolCalls) => {
           setMessages((prev) => [
             ...prev,
-            { role: 'assistant', content: fullMessage },
+            {
+              role: 'assistant',
+              content: fullMessage,
+              widgets: receivedWidgets.length > 0 ? [...receivedWidgets] : undefined,
+            },
           ])
           setStreamingContent('')
           setIsStreaming(false)
@@ -346,7 +356,7 @@ export default function Chat() {
             </Link>
 
             {/* Tool Call Indicator */}
-            <AnimatePresence>
+            {/* <AnimatePresence>
               {(toolCalls.length > 0 || activeTools.length > 0) && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
@@ -362,7 +372,7 @@ export default function Chat() {
                   </span>
                 </motion.div>
               )}
-            </AnimatePresence>
+            </AnimatePresence> */}
 
             {/* Clear Button */}
             <button
@@ -435,14 +445,19 @@ export default function Chat() {
                         {message.content}
                       </p>
                     ) : (
-                      <div className="prose prose-sm max-w-none">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={markdownComponents}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
+                      <>
+                        <div className="prose prose-sm max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={markdownComponents}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                        {message.widgets?.map((w, wi) => (
+                          <Widget key={wi} data={w} />
+                        ))}
+                      </>
                     )}
                   </div>
                 </motion.div>

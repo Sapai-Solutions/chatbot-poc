@@ -39,7 +39,7 @@
 # Usage:
 #   Dev (via docker compose):   docker compose up
 #   Prod (via docker compose):  docker compose -f docker-compose.prod.yml up -d
-#   Manual build (prod):        docker build --target production -t kpdn-frontend .
+#   Manual build (prod):        docker build --target production -t chatbot-frontend .
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── DEVELOPMENT — hot reload with Vite HMR ────────────────────────────────────

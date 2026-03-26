@@ -38,7 +38,7 @@
 # Usage:
 #   Dev (via docker compose):   docker compose up
 #   Prod (via docker compose):  docker compose -f docker-compose.prod.yml up -d
-#   Manual build (prod):        docker build --target production -t kpdn-backend .
+#   Manual build (prod):        docker build --target production -t chatbot-backend .
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── BASE — shared between dev and prod ────────────────────────────────────────
