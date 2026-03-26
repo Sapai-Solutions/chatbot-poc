@@ -22,6 +22,8 @@ This template provides everything you need to build and deploy an AI-powered cha
 | *Widget System* | Tools can spawn interactive inline widgets inside the chat |
 | *Modern UI* | React frontend with markdown support and tool visualization |
 
+For a detailed explanation of how messages flow from the browser through the LangGraph agent graph and back as a live stream, see **[Agent Architecture & Implementation](AGENT_ARCHITECTURE.md)**.
+
 ---
 
 ## Quick Start
@@ -90,6 +92,24 @@ GET /api/chat/history/{session_id}
 ```bash
 DELETE /api/chat/history/{session_id}
 ```
+
+---
+
+## How the Agent Works
+
+The chatbot is powered by a **LangGraph ReAct agent** — a directed graph that loops between an LLM node and a tools node until the model produces a final answer.
+
+```
+START → agent node → (tool calls?) → tools node → agent node → … → END
+```
+
+1. **agent node** — the LLM receives the conversation history and decides whether to call a tool or respond directly.
+2. **tools node** — requested tools are executed and their results appended to the message state.
+3. The cycle repeats until the LLM produces a response without any tool calls.
+
+Every LLM token is forwarded to the browser as it is generated via **Server-Sent Events**. The frontend accumulates tokens and renders live GitHub-flavored markdown so the response appears word-by-word.
+
+**Full details** — graph structure, SSE event reference, widget detection, multi-turn context, Nginx configuration: [AGENT_ARCHITECTURE.md](AGENT_ARCHITECTURE.md)
 
 ---
 
